@@ -1,0 +1,153 @@
+version: '3.8'
+
+services:
+  # Minio Object Storage
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - spark-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Minio Client - Create buckets
+  minio-init:
+    image: minio/mc:latest
+    container_name: minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set minio http://minio:9000 admin password;
+      mc mb minio/warehouse --ignore-existing;
+      mc mb minio/nessie --ignore-existing;
+      echo 'Minio buckets created successfully';
+      "
+    networks:
+      - spark-network
+
+  # Nessie Catalog
+  nessie:
+    image: projectnessie/nessie:latest
+    container_name: nessie
+    ports:
+      - "19120:19120"
+    environment:
+      NESSIE_VERSION_STORE_TYPE: IN_MEMORY
+      QUARKUS_LOG_LEVEL: INFO
+      QUARKUS_LOG_CONSOLE_ENABLE: true
+    networks:
+      - spark-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:19120/api/v1/trees"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Spark Master
+  spark-master:
+    image: bitnami/spark:3.5.0
+    container_name: spark-master
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+      - SPARK_USER=spark
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    volumes:
+      - ./src:/opt/spark/jobs
+      - ./conf:/opt/spark/conf-custom
+      - ./jars:/opt/spark/jars-custom
+    networks:
+      - spark-network
+
+  # Spark Worker
+  spark-worker:
+    image: bitnami/spark:3.5.0
+    container_name: spark-worker
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_WORKER_CORES=2
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+      - SPARK_USER=spark
+    depends_on:
+      - spark-master
+    volumes:
+      - ./src:/opt/spark/jobs
+      - ./conf:/opt/spark/conf-custom
+      - ./jars:/opt/spark/jars-custom
+    networks:
+      - spark-network
+
+  # Trino Coordinator
+  trino:
+    image: trinodb/trino:latest
+    container_name: trino
+    ports:
+      - "8081:8080"
+    environment:
+      - TRINO_ENVIRONMENT=production
+    volumes:
+      - ./trino/etc:/etc/trino
+    depends_on:
+      nessie:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - spark-network
+
+  # Jupyter Notebook with PySpark
+  jupyter:
+    image: jupyter/pyspark-notebook:latest
+    container_name: jupyter-pyspark
+    ports:
+      - "8888:8888"
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - SPARK_MASTER=spark://spark-master:7077
+      - PYSPARK_SUBMIT_ARGS=--jars /opt/spark/jars-custom/*.jar pyspark-shell
+      - GRANT_SUDO=yes
+      - CHOWN_HOME=yes
+      - CHOWN_HOME_OPTS=-R
+    user: root
+    volumes:
+      - ./notebooks:/home/jovyan/work
+      - ./conf:/opt/spark/conf-custom
+      - ./jars:/opt/spark/jars-custom
+    depends_on:
+      - spark-master
+      - nessie
+      - minio
+    networks:
+      - spark-network
+    command: start-notebook.sh --NotebookApp.token='' --NotebookApp.password='' --allow-root
+
+volumes:
+  minio_data:
+
+networks:
+  spark-network:
+    driver: bridge
