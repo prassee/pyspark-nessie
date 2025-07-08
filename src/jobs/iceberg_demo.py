@@ -71,6 +71,30 @@ def create_sample_data(spark):
     return df
 
 
+def load_matches_data(spark: SparkSession):
+    import pyspark.sql.functions as F
+
+    matches = spark.read.csv("s3a://sdc/matches.csv", header=True, inferSchema=True)
+    matches = matches.withColumn("obs_year", F.year("completion_date")).withColumn(
+        "obs_month", F.month("completion_date")
+    )
+    matches.write.format("iceberg").partitionBy("obs_year", "obs_month").mode(
+        "overwrite"
+    ).saveAsTable("nessie.demo.fact_matches")
+    # Compact the matches table
+    spark.sql("CALL nessie.system.rewrite_data_files('nessie.demo.fact_matches')").show(
+        5, False
+    )
+    # Vacuum the matches table (commented out due to GC being disabled)
+    # spark.sql(
+    #     "CALL nessie.system.expire_snapshots('nessie.demo.fact_matches')"
+    # ).show(5, False)
+    # Enable garbage collection by setting gc.enabled to true
+    spark.sql(
+        "ALTER TABLE nessie.demo.fact_matches SET TBLPROPERTIES ('gc.enabled'='true')"
+    )
+
+
 def main():
     print("Starting PySpark Iceberg job...")
 

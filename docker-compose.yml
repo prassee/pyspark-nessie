@@ -39,6 +39,24 @@ services:
     networks:
       - spark-network
 
+  # PostgreSQL for Nessie persistence
+  postgres:
+    image: postgres:15
+    container_name: nessie-postgres
+    environment:
+      POSTGRES_DB: nessie
+      POSTGRES_USER: nessie
+      POSTGRES_PASSWORD: nessie
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - spark-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nessie -d nessie"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
   # Nessie Catalog
   nessie:
     image: projectnessie/nessie:latest
@@ -46,9 +64,16 @@ services:
     ports:
       - "19120:19120"
     environment:
-      NESSIE_VERSION_STORE_TYPE: IN_MEMORY
+      NESSIE_VERSION_STORE_TYPE: JDBC
+      QUARKUS_DATASOURCE_DB_KIND: postgresql
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://postgres:5432/nessie
+      QUARKUS_DATASOURCE_USERNAME: nessie
+      QUARKUS_DATASOURCE_PASSWORD: nessie
       QUARKUS_LOG_LEVEL: INFO
       QUARKUS_LOG_CONSOLE_ENABLE: true
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - spark-network
     healthcheck:
@@ -72,7 +97,7 @@ services:
       - "8080:8080"
       - "7077:7077"
     volumes:
-      - ./src:/opt/spark/jobs
+      - ./src/jobs:/opt/spark/jobs
       - ./conf:/opt/spark/conf-custom
       - ./jars:/opt/spark/jars-custom
     networks:
@@ -95,7 +120,7 @@ services:
     depends_on:
       - spark-master
     volumes:
-      - ./src:/opt/spark/jobs
+      - ./src/jobs:/opt/spark/jobs
       - ./conf:/opt/spark/conf-custom
       - ./jars:/opt/spark/jars-custom
     networks:
@@ -147,6 +172,7 @@ services:
 
 volumes:
   minio_data:
+  postgres_data:
 
 networks:
   spark-network:
