@@ -3,15 +3,6 @@ Sample PySpark job to create and write data to Iceberg tables using Nessie catal
 """
 
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import current_timestamp
-from pyspark.sql.types import (
-    DoubleType,
-    IntegerType,
-    StringType,
-    StructField,
-    StructType,
-    TimestampType,
-)
 
 
 def create_spark_session():
@@ -42,33 +33,6 @@ def create_spark_session():
         .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
         .getOrCreate()
     )
-
-
-def create_sample_data(spark):
-    """Create sample data for testing"""
-    schema = StructType(
-        [
-            StructField("id", IntegerType(), True),
-            StructField("name", StringType(), True),
-            StructField("age", IntegerType(), True),
-            StructField("salary", DoubleType(), True),
-            StructField("department", StringType(), True),
-            StructField("created_at", TimestampType(), True),
-        ]
-    )
-
-    data = [
-        (1, "John Doe", 30, 75000.0, "Engineering", None),
-        (2, "Jane Smith", 25, 65000.0, "Marketing", None),
-        (3, "Bob Johnson", 35, 85000.0, "Engineering", None),
-        (4, "Alice Brown", 28, 70000.0, "Sales", None),
-        (5, "Charlie Wilson", 32, 80000.0, "Engineering", None),
-    ]
-
-    df = spark.createDataFrame(data, schema)
-    df = df.withColumn("created_at", current_timestamp())
-
-    return df
 
 
 def load_matches_data(spark: SparkSession):
@@ -102,19 +66,17 @@ def load_matches_data_partitioned(spark: SparkSession):
     matches.printSchema()
 
 
-def load_incremental_data(spark: SparkSession):
+def load_incremental_data(
+    spark: SparkSession, source_path="s3a://sdc/matches/matches-dev_year.csv"
+):
     import pyspark.sql.functions as F
 
     matches_inc = (
-        spark.read.csv(
-            "s3a://sdc/matches/matches-dev_year.csv", header=True, inferSchema=True
-        )
+        spark.read.csv(source_path, header=True, inferSchema=True)
         .withColumn("obs_year", F.year("completion_date"))
         .withColumn("obs_month", F.month("completion_date"))
     )
-
-    matches = spark.sql("""select * from nessie.unnest_master.matches""")
-    matches.printSchema()
+    table_name, temp_view_name = "nessie.unnest_master.matches", "temp_matches_inc"
 
     # Check schema differences and allow schema evolution
     print("Merging incremental data with schema evolution...")
@@ -125,16 +87,11 @@ def load_incremental_data(spark: SparkSession):
     # Write incremental data with schema evolution enabled
     # Perform MERGE INTO operation
     # Create a temporary view for the incremental data
-    matches_inc.createOrReplaceTempView("temp_matches_inc")
+    matches_inc.createOrReplaceTempView(temp_view_name)
 
     # Get schema differences
-    target_columns = set(
-        [
-            field.name
-            for field in spark.table("nessie.unnest_master.matches").schema.fields
-        ]
-    )
-    source_columns = set([field.name for field in matches_inc.schema.fields])
+    target_columns = {field.name for field in spark.table(table_name).schema.fields}
+    source_columns = {field.name for field in matches_inc.schema.fields}
     new_columns = source_columns - target_columns
 
     if new_columns:
@@ -147,12 +104,12 @@ def load_incremental_data(spark: SparkSession):
                 if field.name == col
             ][0]
             spark.sql(
-                f"ALTER TABLE nessie.unnest_master.matches ADD COLUMN {col} {col_type.simpleString()}"
+                f"ALTER TABLE {table_name} ADD COLUMN {col} {col_type.simpleString()}"
             )
 
     spark.sql(
-        """
-        MERGE INTO nessie.unnest_master.matches AS target
+        f"""
+        MERGE INTO {table_name} AS target
         USING temp_matches_inc AS source
         ON target.match_id = source.match_id
         WHEN MATCHED THEN UPDATE SET *
@@ -160,10 +117,13 @@ def load_incremental_data(spark: SparkSession):
         """
     )
     # Inspect schema - post merge
-    updated_matches = spark.sql("DESCRIBE TABLE nessie.unnest_master.matches")
+    updated_matches = spark.sql(f"DESCRIBE TABLE {table_name}")
     updated_matches.show(truncate=False)
     print(
-        f"Incremental data merged. New total count: {spark.sql('select * from nessie.unnest_master.matches').count()}"
+        f"""
+        Incremental data merged. New total count: 
+        {spark.sql('select * from nessie.unnest_master.matches').count()}
+        """
     )
 
 
