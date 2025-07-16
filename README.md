@@ -67,6 +67,15 @@ This project sets up a complete data lake architecture using Docker Compose with
    # Open the pyspark_iceberg_demo.ipynb notebook
    ```
 
+6. **Or run the Scala equivalent**:
+   ```bash
+   # Build Scala project
+   ./build-scala.sh
+   
+   # Run Scala demo
+   make scala-demo
+   ```
+
 ## Access Points
 
 | Service | URL | Credentials |
@@ -103,6 +112,10 @@ This project sets up a complete data lake architecture using Docker Compose with
 ├── jars/                       # Downloaded JAR files
 ├── src/
 │   └── iceberg_demo.py         # Sample PySpark job
+├── scala-spark/                # Scala equivalent project
+│   ├── build.sbt              # SBT build configuration
+│   ├── src/main/scala/        # Scala source code
+│   └── src/test/scala/        # Scala test code
 ├── trino/
 │   └── etc/                    # Trino configuration files
 └── download-jars.sh            # Script to download dependencies

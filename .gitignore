@@ -1,6 +1,6 @@
 # JAR files
 jars/*.jar
-
+**/.bsp
 # Docker volumes
 docker-volumes/
 

@@ -97,7 +97,7 @@ services:
       - "8080:8080"
       - "7077:7077"
     volumes:
-      - ./src/jobs:/opt/spark/jobs
+      - ./pyspark:/opt/spark/jobs
       - ./conf:/opt/spark/conf-custom
       - ./jars:/opt/spark/jars-custom
     networks:
@@ -120,7 +120,7 @@ services:
     depends_on:
       - spark-master
     volumes:
-      - ./src/jobs:/opt/spark/jobs
+      - ./pyspark:/opt/spark/jobs
       - ./conf:/opt/spark/conf-custom
       - ./jars:/opt/spark/jars-custom
     networks:

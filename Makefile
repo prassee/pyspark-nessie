@@ -103,3 +103,26 @@ fix-permissions: ## Fix notebook file permissions
 	sudo chown -R $(USER):$(USER) ./notebooks/
 	chmod -R 755 ./notebooks/
 	@echo "✅ Permissions fixed!"
+
+scala-build: ## Build the Scala project
+	@echo "Building Scala project..."
+	cd scala-spark && sbt compile
+
+scala-test: ## Run Scala tests
+	@echo "Running Scala tests..."
+	cd scala-spark && sbt test
+
+scala-assembly: ## Create Scala fat JAR
+	@echo "Creating Scala assembly JAR..."
+	cd scala-spark && sbt assembly
+
+scala-demo: ## Run the Scala demo on Spark cluster
+	@echo "Running Scala demo on Spark cluster..."
+	docker exec -it spark-master spark-submit \
+		--class com.example.iceberg.IcebergNessieDemo \
+		--master spark://spark-master:7077 \
+		--jars /opt/spark/jars-custom/*.jar \
+		/opt/spark/jars-custom/spark-iceberg-nessie-scala-assembly-0.1.0-SNAPSHOT.jar
+
+scala-repl: ## Open Scala REPL in Spark master
+	docker exec -it spark-master bash -c "cd /opt/spark/jobs/scala-spark && sbt console"
