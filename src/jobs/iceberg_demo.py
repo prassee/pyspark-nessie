@@ -172,66 +172,6 @@ def main():
 
     # Create Spark session
     spark = create_spark_session()
-
-    # # Create namespace (database)
-    # print("Creating namespace 'demo'...")
-    # spark.sql("CREATE NAMESPACE IF NOT EXISTS nessie.demo")
-
-    # # Create sample data
-    # print("Creating sample data...")
-    # df = create_sample_data(spark)
-
-    # # Show sample data
-    # print("Sample data:")
-    # df.show()
-
-    # # Create Iceberg table
-    # print("Creating Iceberg table 'employees'...")
-    # df.write.format("iceberg").mode("overwrite").saveAsTable("nessie.demo.employees")
-
-    # print("Table created successfully!")
-
-    # # Read back the data to verify
-    # print("Reading data back from Iceberg table...")
-    # result_df = spark.sql("SELECT * FROM nessie.demo.employees")
-    # result_df.show()
-
-    # Show table metadata
-    # print("Table metadata:")
-    # spark.sql("DESCRIBE EXTENDED nessie.demo.employees").show(truncate=False)
-
-    # # Show table location (will show the UUID path)
-    # print("Table location in S3:")
-    # location_df = spark.sql("SHOW TBLPROPERTIES nessie.demo.employees")
-    # location_df.filter(location_df.key == "location").show(truncate=False)
-
-    # # Append more data
-    # print("Appending more data...")
-    # new_data = [
-    #     (6, "David Lee", 29, 72000.0, "Marketing", None),
-    #     (7, "Emma Davis", 31, 78000.0, "Sales", None),
-    # ]
-
-    # new_df = spark.createDataFrame(new_data, df.schema)
-    # new_df = new_df.withColumn("created_at", current_timestamp())
-
-    # new_df.write.format("iceberg").mode("append").saveAsTable("nessie.demo.employees")
-
-    # print("Data appended successfully!")
-
-    # Show updated data
-    # print("Updated data:")
-    # spark.sql("SELECT * FROM nessie.demo.employees ORDER BY id").show()
-
-    # # Show table history
-    # print("Table history:")
-    # spark.sql("SELECT * FROM nessie.demo.employees.history").show(truncate=False)
-    # print("Table Files:")
-    # spark.sql("SELECT * FROM nessie.demo.employees.files").show(truncate=False)
-
-    # load_matches_data(spark)
-    # partition_matches_data(spark)
-    # load_matches_data_partitioned(spark)
     load_incremental_data(spark)
 
     print("Job completed successfully!")
