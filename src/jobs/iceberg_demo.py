@@ -78,20 +78,92 @@ def load_matches_data(spark: SparkSession):
     matches = matches.withColumn("obs_year", F.year("completion_date")).withColumn(
         "obs_month", F.month("completion_date")
     )
-    matches.write.format("iceberg").partitionBy("obs_year", "obs_month").mode(
-        "overwrite"
-    ).saveAsTable("nessie.demo.fact_matches")
-    # Compact the matches table
-    spark.sql("CALL nessie.system.rewrite_data_files('nessie.demo.fact_matches')").show(
-        5, False
+    (
+        matches.write.format("iceberg")
+        # .partitionBy("obs_year", "obs_month")
+        .mode("overwrite").saveAsTable("nessie.unnest_master.matches")
     )
-    # Vacuum the matches table (commented out due to GC being disabled)
-    # spark.sql(
-    #     "CALL nessie.system.expire_snapshots('nessie.demo.fact_matches')"
-    # ).show(5, False)
-    # Enable garbage collection by setting gc.enabled to true
+
+
+def partition_matches_data(spark: SparkSession):
+    (
+        spark.sql("""select * from nessie.unnest_master.matches""")
+        .write.partitionBy("obs_year", "obs_month")
+        .format("iceberg")
+        .mode("overwrite")
+        .saveAsTable("nessie.unnest_master.matches")
+    )
+
+
+def load_matches_data_partitioned(spark: SparkSession):
+    matches = spark.sql("""select * from nessie.unnest_master.matches""")
+    print(f"total matches count {matches.count()}")  # Trigger action to load data
+    matches.show(5, False)
+    matches.printSchema()
+
+
+def load_incremental_data(spark: SparkSession):
+    import pyspark.sql.functions as F
+
+    matches_inc = (
+        spark.read.csv(
+            "s3a://sdc/matches/matches-dev_year.csv", header=True, inferSchema=True
+        )
+        .withColumn("obs_year", F.year("completion_date"))
+        .withColumn("obs_month", F.month("completion_date"))
+    )
+
+    matches = spark.sql("""select * from nessie.unnest_master.matches""")
+    matches.printSchema()
+
+    # Check schema differences and allow schema evolution
+    print("Merging incremental data with schema evolution...")
+
+    # Enable schema evolution
+    spark.conf.set("spark.sql.iceberg.handle-timestamp-without-timezone", "true")
+
+    # Write incremental data with schema evolution enabled
+    # Perform MERGE INTO operation
+    # Create a temporary view for the incremental data
+    matches_inc.createOrReplaceTempView("temp_matches_inc")
+
+    # Get schema differences
+    target_columns = set(
+        [
+            field.name
+            for field in spark.table("nessie.unnest_master.matches").schema.fields
+        ]
+    )
+    source_columns = set([field.name for field in matches_inc.schema.fields])
+    new_columns = source_columns - target_columns
+
+    if new_columns:
+        print(f"Found new columns in source: {new_columns}")
+        # Add new columns to target table with ALTER TABLE
+        for col in new_columns:
+            col_type = [
+                field.dataType
+                for field in matches_inc.schema.fields
+                if field.name == col
+            ][0]
+            spark.sql(
+                f"ALTER TABLE nessie.unnest_master.matches ADD COLUMN {col} {col_type.simpleString()}"
+            )
+
     spark.sql(
-        "ALTER TABLE nessie.demo.fact_matches SET TBLPROPERTIES ('gc.enabled'='true')"
+        """
+        MERGE INTO nessie.unnest_master.matches AS target
+        USING temp_matches_inc AS source
+        ON target.match_id = source.match_id
+        WHEN MATCHED THEN UPDATE SET *
+        WHEN NOT MATCHED THEN INSERT *
+        """
+    )
+    # Inspect schema - post merge
+    updated_matches = spark.sql("DESCRIBE TABLE nessie.unnest_master.matches")
+    updated_matches.show(truncate=False)
+    print(
+        f"Incremental data merged. New total count: {spark.sql('select * from nessie.unnest_master.matches').count()}"
     )
 
 
@@ -151,11 +223,16 @@ def main():
     # print("Updated data:")
     # spark.sql("SELECT * FROM nessie.demo.employees ORDER BY id").show()
 
-    # Show table history
-    print("Table history:")
-    spark.sql("SELECT * FROM nessie.demo.employees.history").show(truncate=False)
-    print("Table Files:")
-    spark.sql("SELECT * FROM nessie.demo.employees.files").show(truncate=False)
+    # # Show table history
+    # print("Table history:")
+    # spark.sql("SELECT * FROM nessie.demo.employees.history").show(truncate=False)
+    # print("Table Files:")
+    # spark.sql("SELECT * FROM nessie.demo.employees.files").show(truncate=False)
+
+    # load_matches_data(spark)
+    # partition_matches_data(spark)
+    # load_matches_data_partitioned(spark)
+    load_incremental_data(spark)
 
     print("Job completed successfully!")
     spark.stop()
