@@ -84,7 +84,9 @@ services:
 
   # Spark Master
   spark-master:
-    image: bitnami/spark:3.5.0
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: spark-master
     environment:
       - SPARK_MODE=master
@@ -97,7 +99,7 @@ services:
       - "8080:8080"
       - "7077:7077"
     volumes:
-      - ./pyspark:/opt/spark/jobs
+      - ./pyspark/jobs:/opt/spark/jobs
       - ./conf:/opt/spark/conf-custom
       - ./jars:/opt/spark/jars-custom
     networks:
@@ -105,7 +107,9 @@ services:
 
   # Spark Worker
   spark-worker:
-    image: bitnami/spark:3.5.0
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: spark-worker
     environment:
       - SPARK_MODE=worker
@@ -120,7 +124,7 @@ services:
     depends_on:
       - spark-master
     volumes:
-      - ./pyspark:/opt/spark/jobs
+      - ./pyspark/jobs:/opt/spark/jobs
       - ./conf:/opt/spark/conf-custom
       - ./jars:/opt/spark/jars-custom
     networks:

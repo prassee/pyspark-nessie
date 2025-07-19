@@ -114,15 +114,27 @@ scala-test: ## Run Scala tests
 
 scala-assembly: ## Create Scala fat JAR
 	@echo "Creating Scala assembly JAR..."
-	cd scala-spark && sbt assembly
+	cd scala-spark && sbt clean assembly
+	cp scala-spark/target/scala-3.3.6/spark-iceberg-nessie-assembly-0.1.0-SNAPSHOT.jar jars/
+	sleep 5
 
-scala-demo: ## Run the Scala demo on Spark cluster
-	@echo "Running Scala demo on Spark cluster..."
+scala-demo:
+	@echo "Running Scala demo on Spark cluster with arguments: $(ARGS)"
 	docker exec -it spark-master spark-submit \
 		--class com.example.iceberg.IcebergNessieDemo \
 		--master spark://spark-master:7077 \
+		--executor-memory 1g \
+		--driver-memory 1g \
+		--executor-cores 1 \
+		--num-executors 1 \
+		--conf spark.sql.adaptive.enabled=false \
+		--conf spark.serializer=org.apache.spark.serializer.KryoSerializer \
 		--jars /opt/spark/jars-custom/*.jar \
-		/opt/spark/jars-custom/spark-iceberg-nessie-scala-assembly-0.1.0-SNAPSHOT.jar
+		/opt/spark/jars-custom/spark-iceberg-nessie-assembly-0.1.0-SNAPSHOT.jar $(ARGS)
+
+run-scala-demo:
+	make scala-demo ARGS="inspect -n nessie.master.matches"
+# 	make scala-demo ARGS="backFill -p s3a://sdc/matches.csv -t nessie.master.matches"
 
 scala-repl: ## Open Scala REPL in Spark master
 	docker exec -it spark-master bash -c "cd /opt/spark/jobs/scala-spark && sbt console"

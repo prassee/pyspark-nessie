@@ -67,26 +67,25 @@ def load_matches_data_partitioned(spark: SparkSession):
 
 
 def load_incremental_data(
-    spark: SparkSession, source_path="s3a://sdc/matches/matches-dev_year.csv"
+    spark: SparkSession,
+    source_path="s3a://sdc/matches/matches-dev_year.csv",
+    on_cond="target.match_id = source.match_id",
+    table_name="nessie.unnest_master.matches",
 ):
     import pyspark.sql.functions as F
+
+    spark.conf.set("spark.sql.iceberg.handle-timestamp-without-timezone", "true")
 
     matches_inc = (
         spark.read.csv(source_path, header=True, inferSchema=True)
         .withColumn("obs_year", F.year("completion_date"))
         .withColumn("obs_month", F.month("completion_date"))
     )
-    table_name, temp_view_name = "nessie.unnest_master.matches", "temp_matches_inc"
+    temp_view_name = table_name.replace(".", "_") + "_inc"
 
     # Check schema differences and allow schema evolution
     print("Merging incremental data with schema evolution...")
 
-    # Enable schema evolution
-    spark.conf.set("spark.sql.iceberg.handle-timestamp-without-timezone", "true")
-
-    # Write incremental data with schema evolution enabled
-    # Perform MERGE INTO operation
-    # Create a temporary view for the incremental data
     matches_inc.createOrReplaceTempView(temp_view_name)
 
     # Get schema differences
@@ -110,8 +109,8 @@ def load_incremental_data(
     spark.sql(
         f"""
         MERGE INTO {table_name} AS target
-        USING temp_matches_inc AS source
-        ON target.match_id = source.match_id
+        USING {temp_view_name} AS source
+        ON {on_cond}
         WHEN MATCHED THEN UPDATE SET *
         WHEN NOT MATCHED THEN INSERT *
         """

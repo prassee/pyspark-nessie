@@ -213,3 +213,7 @@ sbt assembly
 | **Debugging** | Good | Excellent |
 
 The Scala implementation provides better performance and type safety, while the PySpark version offers easier development and a more accessible syntax for data scientists.
+
+## A Note on Iceberg's Data Merge 
+
+- https://medium.com/datamindedbe/upserting-data-using-spark-and-iceberg-9e7b957494cf
