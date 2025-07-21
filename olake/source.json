@@ -1,0 +1,16 @@
+{
+    "host": "nessie-postgres",
+    "port": 5432,
+    "database": "olake",
+    "username": "nessie",
+    "password": "nessie",
+    "jdbc_url_params": {},
+    "ssl": {
+        "mode": "disable"
+    },
+    "update_method": {        
+        "intial_wait_time": 200
+    },
+    "reader_batch_size": 10,
+    "max_threads": 5
+}

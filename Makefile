@@ -138,3 +138,6 @@ run-scala-demo:
 
 scala-repl: ## Open Scala REPL in Spark master
 	docker exec -it spark-master bash -c "cd /opt/spark/jobs/scala-spark && sbt console"
+
+olake-scan-pgsql:
+	podman run --pull=always -v $(PWD)/olake:/mnt/config -t olake-postgres:latest  olakego/source-postgres:latest discover --config /mnt/config/source.json

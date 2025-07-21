@@ -1,6 +1,21 @@
 version: '3.8'
+x-app-defaults:
+  host_persistence_path: &hostPersistencePath ${PWD}/olake-data
+  worker_config_volume_details: &workerConfigVolumeDetails
+    type: bind
+    source: *hostPersistencePath
+    target: /tmp/olake-config
+
+x-signup-defaults:
+  username: &defaultUsername "admin"
+  password: &defaultPassword "password"
+  email: &defaultEmail "admin@example.com"
+
+x-encryption:
+  key: &encryptionKey "" 
 
 services:
+  
   # Minio Object Storage
   minio:
     image: minio/minio:latest
@@ -21,23 +36,23 @@ services:
       interval: 30s
       timeout: 20s
       retries: 3
-
+  
   # Minio Client - Create buckets
-  minio-init:
-    image: minio/mc:latest
-    container_name: minio-init
-    depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      mc alias set minio http://minio:9000 admin password;
-      mc mb minio/warehouse --ignore-existing;
-      mc mb minio/nessie --ignore-existing;
-      echo 'Minio buckets created successfully';
-      "
-    networks:
-      - spark-network
+  # minio-init:
+  #   image: minio/mc:latest
+  #   container_name: minio-init
+  #   depends_on:
+  #     minio:
+  #       condition: service_healthy
+  #   entrypoint: >
+  #     /bin/sh -c "
+  #     mc alias set minio http://minio:9000 admin password;
+  #     mc mb minio/warehouse --ignore-existing;
+  #     mc mb minio/nessie --ignore-existing;
+  #     echo 'Minio buckets created successfully';
+  #     "
+  #   networks:
+  #     - spark-network
 
   # PostgreSQL for Nessie persistence
   postgres:
@@ -49,6 +64,8 @@ services:
       POSTGRES_PASSWORD: nessie
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
     networks:
       - spark-network
     healthcheck:
@@ -81,6 +98,40 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+
+  # lakekeeper
+  lakekeeper:
+    image: quay.io/lakekeeper/catalog:v0.9.3
+    container_name: lakekeeper
+    pull_policy: always
+    environment:
+      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
+      - LAKEKEEPER__PG_DATABASE_URL_READ=postgresql://nessie:nessie@nessie-postgres:5432/lakekeeper
+      - LAKEKEEPER__PG_DATABASE_URL_WRITE=postgresql://nessie:nessie@nessie-postgres:5432/lakekeeper
+      - RUST_LOG=trace,axum=trace,sqlx=trace,lakekeeper=trace
+    command: [ "serve" ]
+    depends_on:
+      lakekeeper-migrate:
+          condition: service_completed_successfully
+    ports:
+      - "8181:8181"
+    networks:
+      - spark-network
+  
+  lakekeeper-migrate:
+    image: quay.io/lakekeeper/catalog:v0.9.3
+    container_name: lakekeeper-migrate
+    pull_policy: always
+    environment:
+      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
+      - LAKEKEEPER__PG_DATABASE_URL_READ=postgresql://nessie:nessie@nessie-postgres:5432/lakekeeper
+      - LAKEKEEPER__PG_DATABASE_URL_WRITE=postgresql://nessie:nessie@nessie-postgres:5432/lakekeeper
+      - RUST_LOG=trace,axum=trace,sqlx=trace,lakekeeper=trace
+    restart: "no"
+    command: [ "migrate" ]
+    networks:
+      - spark-network
+
 
   # Spark Master
   spark-master:
@@ -131,22 +182,22 @@ services:
       - spark-network
 
   # Trino Coordinator
-  trino:
-    image: trinodb/trino:latest
-    container_name: trino
-    ports:
-      - "8081:8080"
-    environment:
-      - TRINO_ENVIRONMENT=production
-    volumes:
-      - ./trino/etc:/etc/trino
-    depends_on:
-      nessie:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-    networks:
-      - spark-network
+  # trino:
+  #   image: trinodb/trino:latest
+  #   container_name: trino
+  #   ports:
+  #     - "8081:8080"
+  #   environment:
+  #     - TRINO_ENVIRONMENT=production
+  #   volumes:
+  #     - ./trino/etc:/etc/trino
+  #   depends_on:
+  #     nessie:
+  #       condition: service_healthy
+  #     minio:
+  #       condition: service_healthy
+  #   networks:
+  #     - spark-network
 
   # Jupyter Notebook with PySpark
   jupyter:
@@ -173,6 +224,24 @@ services:
     networks:
       - spark-network
     command: start-notebook.sh --NotebookApp.token='' --NotebookApp.password='' --allow-root
+
+  olake-gen-stream:
+    image: olakego/source-postgres:latest
+    container_name: olake-gen-stream
+    volumes:
+      - ./olake:/mnt/config/
+    command: "discover --config /mnt/config/source.json"
+    networks:
+      - spark-network
+
+  olake-sync:
+    image: olakego/source-postgres:latest
+    container_name: olake-sync
+    volumes:
+      - ./olake:/mnt/config/
+    command: "sync --config /mnt/config/source.json --catalog /mnt/config/streams.json --destination /mnt/config/destination-nessie.json"
+    networks:
+      - spark-network
 
 volumes:
   minio_data:

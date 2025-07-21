@@ -4,8 +4,40 @@ import mainargs.{main, arg, ParserForMethods, Flag}
 import com.example.iceberg.TableOperations.showTableMetadata
 
 object IcebergNessieDemo:
-  // backFillTable(InputFilePath("s3a://sdc/matches.csv"), TableName("nessie.master.matches"))
-  // loadIncData(spark.table("nessie.master.maps"), TableName("nessie.master.maps"), MatchCond("target.mapid = source.mapid"))
+
+  @main
+  def createNs(
+      @arg(name = "catalog", short = 'c') catalog: String,
+      @arg(name = "name", short = 'n') name: String,
+      @arg(name = "path", short = 'p') path: String
+  ): Unit =
+    try {
+      logger.info("🚀 Starting Spark Iceberg Demo with Nessie...")
+      import com.example.iceberg.TableOperations.createNamespace
+      createNamespace(s"${catalog}.${name}", path)
+      logger.info("✅ Namespace created successfully!")
+    } catch {
+      case e: Exception =>
+        logger.info(s"❌ Error occurred: ${e.getMessage}")
+        e.printStackTrace()
+    } finally {
+      spark.stop()
+    }
+
+  @main
+  def showNs(): Unit =
+    try {
+      logger.info("🚀 Starting Spark Iceberg Demo with Lakekeeper...")
+      import com.example.iceberg.TableOperations.showNameSpaces
+      showNameSpaces()
+      logger.info("✅ Demo completed successfully!")
+    } catch {
+      case e: Exception =>
+        logger.info(s"❌ Error occurred: ${e.getMessage}")
+        e.printStackTrace()
+    } finally {
+      spark.stop()
+    }
 
   @main
   def inspect(@arg(name = "name", short = 'n') tableName: String): Unit =

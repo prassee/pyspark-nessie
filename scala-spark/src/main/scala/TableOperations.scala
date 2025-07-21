@@ -3,6 +3,7 @@ package com.example.iceberg
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
+import mainargs.arg
 
 /** Iceberg Demo with Nessie Catalog using Spark Scala Equivalent to the PySpark demo showing:
   *   - Iceberg table creation and operations
@@ -12,10 +13,9 @@ import org.apache.spark.sql.types._
   *   - Data versioning
   */
 object TableOperations:
-  def backFillTable(path: InputFilePath, tableName: TableName)(implicit spark: SparkSession): Unit = {
+  def backFillTable(path: InputFilePath, tableName: TableName)(implicit spark: SparkSession): Unit =
     val maps: DataFrame = spark.read.option("inferSchema", "true").option("header", "true").csv(path.path)
     maps.write.format("iceberg").mode("overwrite").saveAsTable(tableName.name)
-  }
 
   def loadIncData(
       incDataDf: DataFrame,
@@ -47,11 +47,19 @@ object TableOperations:
       """)
     logger.info("Incremental data merged into maps table with schema evolution!")
 
-  def createNamespace(name: String)(implicit spark: SparkSession): Unit =
-    logger.info(s"📁 Creating namespace '${name}'...")
-    spark.sql(s"CREATE NAMESPACE IF NOT EXISTS nessie.${name}")
+  def createNamespace(name: String, path: String)(implicit spark: SparkSession): Unit =
+    logger.info(s"📁 Creating namespace '$name' on location $path")
+    // Use the provided path as the namespace location, even if it differs from the default warehouse location
+    spark.sql(s"CREATE NAMESPACE IF NOT EXISTS $name LOCATION '$path'")
+    showNameSpaces()
+
+  def showNameSpaces(catalogName: String = "nessie")(implicit spark: SparkSession): Unit =
     logger.info("📋 Available namespaces:")
-    spark.sql("SHOW NAMESPACES").show()
+    spark.sql(s"use ${catalogName}").show(truncate = false)
+    spark.sql(s"SHOW SCHEMAS IN ${catalogName}").collect().map(_.getString(0)).foreach { schema =>
+      logger.info(s"Tables in schema '$schema':")
+      spark.sql(s"SHOW TABLES IN $catalogName.$schema").show(truncate = false)
+    }
 
   def showTableMetadata(tableName: TableName)(implicit spark: SparkSession): Unit =
     val table = tableName.name
