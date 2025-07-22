@@ -89,6 +89,8 @@ services:
       QUARKUS_LOG_LEVEL: INFO
       QUARKUS_LOG_CONSOLE_ENABLE: true
     depends_on:
+      jaeger:
+        condition: service_healthy
       postgres:
         condition: service_healthy
     networks:
@@ -98,6 +100,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+
 
   # lakekeeper
   lakekeeper:
