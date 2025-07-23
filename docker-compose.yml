@@ -74,6 +74,33 @@ services:
       timeout: 10s
       retries: 5
 
+  # PostgreSQL which stores master & transactional data & used for CDC replication
+  ods-postgres:
+    image: vijaysaran07/postgres-with-wal2json:v1.0
+    container_name: ods-postgres
+    environment:
+      POSTGRES_DB: ods
+      POSTGRES_USER: ods
+      POSTGRES_PASSWORD: ods
+    volumes:
+      - ods_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - spark-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ods -d ods"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    command: >
+      postgres -c wal_level=logical
+               -c max_replication_slots=10
+               -c max_wal_senders=10
+               -c wal_keep_size=64MB
+               -c track_commit_timestamp=on
+               -c shared_preload_libraries='wal2json'
+
   # Nessie Catalog
   nessie:
     image: projectnessie/nessie:latest
@@ -89,8 +116,6 @@ services:
       QUARKUS_LOG_LEVEL: INFO
       QUARKUS_LOG_CONSOLE_ENABLE: true
     depends_on:
-      jaeger:
-        condition: service_healthy
       postgres:
         condition: service_healthy
     networks:
@@ -102,38 +127,38 @@ services:
       retries: 5
 
 
-  # lakekeeper
-  lakekeeper:
-    image: quay.io/lakekeeper/catalog:v0.9.3
-    container_name: lakekeeper
-    pull_policy: always
-    environment:
-      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
-      - LAKEKEEPER__PG_DATABASE_URL_READ=postgresql://nessie:nessie@nessie-postgres:5432/lakekeeper
-      - LAKEKEEPER__PG_DATABASE_URL_WRITE=postgresql://nessie:nessie@nessie-postgres:5432/lakekeeper
-      - RUST_LOG=trace,axum=trace,sqlx=trace,lakekeeper=trace
-    command: [ "serve" ]
-    depends_on:
-      lakekeeper-migrate:
-          condition: service_completed_successfully
-    ports:
-      - "8181:8181"
-    networks:
-      - spark-network
+  # # lakekeeper
+  # lakekeeper:
+  #   image: quay.io/lakekeeper/catalog:v0.9.3
+  #   container_name: lakekeeper
+  #   pull_policy: always
+  #   environment:
+  #     - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
+  #     - LAKEKEEPER__PG_DATABASE_URL_READ=postgresql://nessie:nessie@nessie-postgres:5432/lakekeeper
+  #     - LAKEKEEPER__PG_DATABASE_URL_WRITE=postgresql://nessie:nessie@nessie-postgres:5432/lakekeeper
+  #     - RUST_LOG=trace,axum=trace,sqlx=trace,lakekeeper=trace
+  #   command: [ "serve" ]
+  #   depends_on:
+  #     lakekeeper-migrate:
+  #         condition: service_completed_successfully
+  #   ports:
+  #     - "8181:8181"
+  #   networks:
+  #     - spark-network
   
-  lakekeeper-migrate:
-    image: quay.io/lakekeeper/catalog:v0.9.3
-    container_name: lakekeeper-migrate
-    pull_policy: always
-    environment:
-      - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
-      - LAKEKEEPER__PG_DATABASE_URL_READ=postgresql://nessie:nessie@nessie-postgres:5432/lakekeeper
-      - LAKEKEEPER__PG_DATABASE_URL_WRITE=postgresql://nessie:nessie@nessie-postgres:5432/lakekeeper
-      - RUST_LOG=trace,axum=trace,sqlx=trace,lakekeeper=trace
-    restart: "no"
-    command: [ "migrate" ]
-    networks:
-      - spark-network
+  # lakekeeper-migrate:
+  #   image: quay.io/lakekeeper/catalog:v0.9.3
+  #   container_name: lakekeeper-migrate
+  #   pull_policy: always
+  #   environment:
+  #     - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
+  #     - LAKEKEEPER__PG_DATABASE_URL_READ=postgresql://nessie:nessie@nessie-postgres:5432/lakekeeper
+  #     - LAKEKEEPER__PG_DATABASE_URL_WRITE=postgresql://nessie:nessie@nessie-postgres:5432/lakekeeper
+  #     - RUST_LOG=trace,axum=trace,sqlx=trace,lakekeeper=trace
+  #   restart: "no"
+  #   command: [ "migrate" ]
+  #   networks:
+  #     - spark-network
 
 
   # Spark Master
@@ -184,7 +209,7 @@ services:
     networks:
       - spark-network
 
-  # Trino Coordinator
+  # # Trino Coordinator
   # trino:
   #   image: trinodb/trino:latest
   #   container_name: trino
@@ -194,43 +219,43 @@ services:
   #     - TRINO_ENVIRONMENT=production
   #   volumes:
   #     - ./trino/etc:/etc/trino
-  #   depends_on:
-  #     nessie:
-  #       condition: service_healthy
-  #     minio:
-  #       condition: service_healthy
+  #   # depends_on:
+  #   #   nessie:
+  #   #     condition: service_healthy
+  #   #   minio:
+  #   #     condition: service_healthy
   #   networks:
   #     - spark-network
 
-  # Jupyter Notebook with PySpark
-  jupyter:
-    image: jupyter/pyspark-notebook:latest
-    container_name: jupyter-pyspark
-    ports:
-      - "8888:8888"
-    environment:
-      - JUPYTER_ENABLE_LAB=yes
-      - SPARK_MASTER=spark://spark-master:7077
-      - PYSPARK_SUBMIT_ARGS=--jars /opt/spark/jars-custom/*.jar pyspark-shell
-      - GRANT_SUDO=yes
-      - CHOWN_HOME=yes
-      - CHOWN_HOME_OPTS=-R
-    user: root
-    volumes:
-      - ./notebooks:/home/jovyan/work
-      - ./conf:/opt/spark/conf-custom
-      - ./jars:/opt/spark/jars-custom
-    depends_on:
-      - spark-master
-      - nessie
-      - minio
-    networks:
-      - spark-network
-    command: start-notebook.sh --NotebookApp.token='' --NotebookApp.password='' --allow-root
+  # # Jupyter Notebook with PySpark
+  # jupyter:
+  #   image: jupyter/pyspark-notebook:latest
+  #   container_name: jupyter-pyspark
+  #   ports:
+  #     - "8888:8888"
+  #   environment:
+  #     - JUPYTER_ENABLE_LAB=yes
+  #     - SPARK_MASTER=spark://spark-master:7077
+  #     - PYSPARK_SUBMIT_ARGS=--jars /opt/spark/jars-custom/*.jar pyspark-shell
+  #     - GRANT_SUDO=yes
+  #     - CHOWN_HOME=yes
+  #     - CHOWN_HOME_OPTS=-R
+  #   user: root
+  #   volumes:
+  #     - ./notebooks:/home/jovyan/work
+  #     - ./conf:/opt/spark/conf-custom
+  #     - ./jars:/opt/spark/jars-custom
+  #   # depends_on:
+  #   #   - spark-master
+  #   #   - nessie
+  #   #   - minio
+  #   networks:
+  #     - spark-network
+  #   command: start-notebook.sh --NotebookApp.token='' --NotebookApp.password='' --allow-root
 
-  olake-gen-stream:
+  olake-discover:
     image: olakego/source-postgres:latest
-    container_name: olake-gen-stream
+    container_name: olake-discover
     volumes:
       - ./olake:/mnt/config/
     command: "discover --config /mnt/config/source.json"
@@ -242,13 +267,14 @@ services:
     container_name: olake-sync
     volumes:
       - ./olake:/mnt/config/
-    command: "sync --config /mnt/config/source.json --catalog /mnt/config/streams.json --destination /mnt/config/destination-nessie.json"
+    command: "sync --config /mnt/config/source.json --catalog /mnt/config/streams.json --state /mnt/config/state.json --destination /mnt/config/destination-s3.json "
     networks:
       - spark-network
 
 volumes:
   minio_data:
   postgres_data:
+  ods_postgres_data:
 
 networks:
   spark-network:

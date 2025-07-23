@@ -6,6 +6,20 @@ import com.example.iceberg.TableOperations.showTableMetadata
 object IcebergNessieDemo:
 
   @main
+  def olakeCdc(): Unit =
+    try {
+      spark.read.parquet("s3a://sdc/public/customers/*.parquet").show(10, truncate = false)
+      // spark.read.parquet("s3a://sdc/public/orders/*.parquet").show(10, truncate = false)
+      // spark.read.parquet("s3a://sdc/public/order_items/*.parquet").show(10, truncate = false)
+    } catch {
+      case e: Exception =>
+        logger.info(s"❌ Error occurred: ${e.getMessage}")
+        e.printStackTrace()
+    } finally {
+      spark.stop()
+    }
+
+  @main
   def createNs(
       @arg(name = "catalog", short = 'c') catalog: String,
       @arg(name = "name", short = 'n') name: String,

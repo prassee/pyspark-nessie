@@ -1,14 +1,15 @@
 {
-    "host": "nessie-postgres",
+    "host": "ods-postgres",
     "port": 5432,
-    "database": "olake",
-    "username": "nessie",
-    "password": "nessie",
+    "database": "ods",
+    "username": "ods",
+    "password": "ods",
     "jdbc_url_params": {},
     "ssl": {
         "mode": "disable"
     },
-    "update_method": {        
+    "update_method": {
+        "replication_slot": "olake_slot",
         "intial_wait_time": 200
     },
     "reader_batch_size": 10,
