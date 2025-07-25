@@ -2,17 +2,17 @@
   "selected_streams": {
     "public": [
       {
-        "partition_regex": "{created_at,,YYYY}/{created_at,,MM}/{created_at,,DD}/{created_at,,HH}/{created_at,,mm}/",
+        "partition_regex": "{updated_at,,YYYY}/{updated_at,,MM}/{updated_at,,DD}/",
         "stream_name": "order_items",
         "normalization": true
       },
       {
-        "partition_regex": "{created_at,,YYYY}/{created_at,,MM}/{created_at,,DD}/{created_at,,HH}/{created_at,,mm}/",
+        "partition_regex": "{updated_at,,YYYY}/{updated_at,,MM}/{updated_at,,DD}/",
         "stream_name": "orders",
         "normalization": true
       },
       {
-        "partition_regex": "{created_at,,YYYY}/{created_at,,MM}/{created_at,,DD}/{created_at,,HH}/{created_at,,mm}/",
+        "partition_regex": "{updated_at,,YYYY}/{updated_at,,MM}/{updated_at,,DD}/",
         "stream_name": "customers",
         "normalization": true
       }
@@ -104,7 +104,7 @@
           "item_id",
           "order_id"
         ],
-        "sync_mode": "cdc"
+        "sync_mode": "full_refresh"
       }
     },
     {
@@ -198,7 +198,7 @@
           "total_amount",
           "status"
         ],
-        "sync_mode": "cdc"
+        "sync_mode": "full_refresh"
       }
     },
     {
@@ -286,7 +286,7 @@
           "last_name",
           "email"
         ],
-        "sync_mode": "cdc"
+        "sync_mode": "full_refresh"
       }
     }
   ]

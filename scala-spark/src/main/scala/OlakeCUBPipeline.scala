@@ -4,7 +4,7 @@ import org.apache.spark.sql.functions._
 object OlakeCUBPipeline:
 
   def writeUnnest(tableName: String, datePath: String): Unit =
-    val tableDf = spark.read.parquet(s"s3a://cdc/public/${tableName}/${datePath}/*.parquet")
+    val tableDf = spark.read.parquet(s"s3a://cdc/olake/writes/public/${tableName}/${datePath}/*.parquet")
     tableDf
       .withColumn("obs_year", year(col("created_at")))
       .withColumn("obs_month", month(col("created_at")))

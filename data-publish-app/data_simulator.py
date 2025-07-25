@@ -93,11 +93,11 @@ def insert_customers_to_db(customers, connection_params=None):
             )
 
         conn.commit()
-        print(f"Inserted {len(customers)} customers into database")
+        print(f"Inserted {len(customers)} customers into database", flush=True)
 
     except Exception as e:
         conn.rollback()
-        print(f"Error inserting customers: {e}")
+        print(f"Error inserting customers: {e}", flush=True)
     finally:
         cursor.close()
         conn.close()
@@ -130,7 +130,7 @@ def generate_orders_and_items(connection_params=None):
 
             for _ in range(num_orders):
                 # Create order
-                order_date = fake.date_time_between(start_date="-2d", end_date="now")
+                order_date = fake.date_time_between(start_date="-2h", end_date="now")
                 status = fake.random_element(
                     elements=(
                         "pending",
@@ -185,11 +185,14 @@ def generate_orders_and_items(connection_params=None):
                 )
 
         conn.commit()
-        print(f"Inserted {orders_inserted} orders and {items_inserted} order items")
+        print(
+            f"Inserted {orders_inserted} orders and {items_inserted} order items",
+            flush=True,
+        )
 
     except Exception as e:
         conn.rollback()
-        print(f"Error inserting orders and items: {e}")
+        print(f"Error inserting orders and items: {e}", flush=True)
     finally:
         cursor.close()
         conn.close()
@@ -220,7 +223,7 @@ def update_random_order_statuses(num_orders=10, connection_params=None):
 
         for order_id in order_ids:
             new_status = fake.random_element(elements=statuses)
-            updated_at = fake.date_time_between(start_date="-1d", end_date="now")
+            updated_at = fake.date_time_between(start_date="-1h", end_date="now")
 
             cursor.execute(
                 "UPDATE orders SET status = %s, updated_at = %s WHERE order_id = %s",
@@ -229,11 +232,11 @@ def update_random_order_statuses(num_orders=10, connection_params=None):
             updated_orders += 1
 
         conn.commit()
-        print(f"Updated status for {updated_orders} random orders")
+        print(f"Updated status for {updated_orders} random orders", flush=True)
 
     except Exception as e:
         conn.rollback()
-        print(f"Error updating order statuses: {e}")
+        print(f"Error updating order statuses: {e}", flush=True)
     finally:
         cursor.close()
         conn.close()
@@ -275,7 +278,7 @@ def update_random_order_items(num_orders=10, connection_params=None):
                     quantity = fake.random_int(min=1, max=10)
                     unit_price = round(fake.random.uniform(5.0, 500.0), 2)
                     created_at = fake.date_time_between(
-                        start_date="-1d", end_date="now"
+                        start_date="-2h", end_date="now"
                     )
 
                     cursor.execute(
@@ -329,7 +332,8 @@ def update_random_order_items(num_orders=10, connection_params=None):
 
         conn.commit()
         print(
-            f"Updated order items for {updated_orders} orders, total items affected: {total_items_updated}"
+            f"Updated order items for {updated_orders} orders, total items affected: {total_items_updated}",
+            flush=True,
         )
 
     except Exception as e:
@@ -351,8 +355,8 @@ if __name__ == "__main__":
     # Randomly select and call one of the three methods
 
     while True:
-        print("Starting random data operation")
+        print("Starting random data operation", flush=True)
         generate_orders_and_items()
         update_random_order_statuses(10)
         update_random_order_items(10)
-        time.sleep(300)  # Sleep for 5 minutes (300 seconds)
+        time.sleep(180)  # Sleep for 5 minutes (300 seconds)

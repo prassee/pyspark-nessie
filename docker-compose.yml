@@ -263,14 +263,23 @@ services:
       - spark-network
 
   olake-sync:
-    image: olakego/source-postgres:dev-latest
+    image: olakego/source-postgres:v0.1.7
     container_name: olake-sync
     volumes:
       - ./olake:/mnt/config/
-    command: "sync --config /mnt/config/source.json --catalog /mnt/config/streams.json --state /mnt/config/state.json --destination /mnt/config/destination-nessie.json "
+    command: "sync --config /mnt/config/source.json --catalog /mnt/config/cdc-streams.json --state /mnt/config/state.json --destination /mnt/config/destination-s3.json"
     networks:
       - spark-network
   
+  olake-full-sync:
+    image: olakego/source-postgres:v0.1.7
+    container_name: olake-full-sync
+    volumes:
+      - ./olake:/mnt/config/
+    command: "sync --config /mnt/config/source.json --catalog /mnt/config/full-refresh-streams.json --destination /mnt/config/destination-s3.json"
+    networks:
+      - spark-network
+
   publisher-app:
     image: python:3.12-alpine3.17
     platform: linux/amd64
