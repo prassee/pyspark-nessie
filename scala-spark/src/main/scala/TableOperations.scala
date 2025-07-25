@@ -92,3 +92,6 @@ object TableOperations:
       val timeTravelDF = spark.sql(s"SELECT * FROM employees VERSION AS OF $firstSnapshotId")
       logger.info(s"Records in first snapshot: ${timeTravelDF.count()}")
       timeTravelDF.show()
+
+  def performUnnest(path: InputFilePath)(implicit spark: SparkSession): Unit =
+    logger.info("🔄 Performing unnest operation...")

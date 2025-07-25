@@ -2,199 +2,23 @@
   "selected_streams": {
     "public": [
       {
-        "partition_regex": "",
-        "stream_name": "customers",
+        "partition_regex": "{created_at,,YYYY}/{created_at,,MM}/{created_at,,DD}/{created_at,,HH}/{created_at,,mm}/",
+        "stream_name": "order_items",
         "normalization": true
       },
       {
-        "partition_regex": "",
+        "partition_regex": "{created_at,,YYYY}/{created_at,,MM}/{created_at,,DD}/{created_at,,HH}/{created_at,,mm}/",
         "stream_name": "orders",
         "normalization": true
       },
       {
-        "partition_regex": "",
-        "stream_name": "order_items",
+        "partition_regex": "{created_at,,YYYY}/{created_at,,MM}/{created_at,,DD}/{created_at,,HH}/{created_at,,mm}/",
+        "stream_name": "customers",
         "normalization": true
       }
     ]
   },
   "streams": [
-    {
-      "stream": {
-        "name": "customers",
-        "namespace": "public",
-        "type_schema": {
-          "properties": {
-            "_cdc_timestamp": {
-              "type": [
-                "integer",
-                "null"
-              ]
-            },
-            "_olake_id": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "_olake_timestamp": {
-              "type": [
-                "integer",
-                "null"
-              ]
-            },
-            "_op_type": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "created_at": {
-              "type": [
-                "timestamp",
-                "null"
-              ]
-            },
-            "customer_id": {
-              "type": [
-                "integer_small"
-              ]
-            },
-            "email": {
-              "type": [
-                "string"
-              ]
-            },
-            "first_name": {
-              "type": [
-                "string"
-              ]
-            },
-            "last_name": {
-              "type": [
-                "string"
-              ]
-            },
-            "phone": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "updated_at": {
-              "type": [
-                "null",
-                "timestamp"
-              ]
-            }
-          }
-        },
-        "supported_sync_modes": [
-          "full_refresh",
-          "cdc",
-          "strict_cdc"
-        ],
-        "source_defined_primary_key": [
-          "email",
-          "customer_id"
-        ],
-        "available_cursor_fields": [
-          "customer_id",
-          "first_name",
-          "last_name",
-          "email"
-        ],
-        "sync_mode": "cdc"
-      }
-    },
-    {
-      "stream": {
-        "name": "orders",
-        "namespace": "public",
-        "type_schema": {
-          "properties": {
-            "_cdc_timestamp": {
-              "type": [
-                "integer",
-                "null"
-              ]
-            },
-            "_olake_id": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "_olake_timestamp": {
-              "type": [
-                "integer",
-                "null"
-              ]
-            },
-            "_op_type": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "created_at": {
-              "type": [
-                "timestamp",
-                "null"
-              ]
-            },
-            "customer_id": {
-              "type": [
-                "integer_small"
-              ]
-            },
-            "order_date": {
-              "type": [
-                "null",
-                "timestamp"
-              ]
-            },
-            "order_id": {
-              "type": [
-                "integer_small"
-              ]
-            },
-            "status": {
-              "type": [
-                "string"
-              ]
-            },
-            "total_amount": {
-              "type": [
-                "number_small"
-              ]
-            },
-            "updated_at": {
-              "type": [
-                "timestamp",
-                "null"
-              ]
-            }
-          }
-        },
-        "supported_sync_modes": [
-          "full_refresh",
-          "cdc",
-          "strict_cdc"
-        ],
-        "source_defined_primary_key": [
-          "customer_id",
-          "order_id"
-        ],
-        "available_cursor_fields": [
-          "order_id",
-          "customer_id",
-          "total_amount",
-          "status"
-        ],
-        "sync_mode": "cdc"
-      }
-    },
     {
       "stream": {
         "name": "order_items",
@@ -203,8 +27,8 @@
           "properties": {
             "_cdc_timestamp": {
               "type": [
-                "integer",
-                "null"
+                "null",
+                "integer"
               ]
             },
             "_olake_id": {
@@ -274,11 +98,193 @@
           "item_id"
         ],
         "available_cursor_fields": [
-          "order_id",
           "product_name",
           "quantity",
           "unit_price",
-          "item_id"
+          "item_id",
+          "order_id"
+        ],
+        "sync_mode": "cdc"
+      }
+    },
+    {
+      "stream": {
+        "name": "orders",
+        "namespace": "public",
+        "type_schema": {
+          "properties": {
+            "_cdc_timestamp": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "_olake_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "_olake_timestamp": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "_op_type": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "created_at": {
+              "type": [
+                "timestamp",
+                "null"
+              ]
+            },
+            "customer_id": {
+              "type": [
+                "integer_small"
+              ]
+            },
+            "is_cod": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "order_date": {
+              "type": [
+                "timestamp",
+                "null"
+              ]
+            },
+            "order_id": {
+              "type": [
+                "integer_small"
+              ]
+            },
+            "status": {
+              "type": [
+                "string"
+              ]
+            },
+            "total_amount": {
+              "type": [
+                "number_small"
+              ]
+            },
+            "updated_at": {
+              "type": [
+                "timestamp",
+                "null"
+              ]
+            }
+          }
+        },
+        "supported_sync_modes": [
+          "cdc",
+          "strict_cdc",
+          "full_refresh"
+        ],
+        "source_defined_primary_key": [
+          "customer_id",
+          "order_id"
+        ],
+        "available_cursor_fields": [
+          "order_id",
+          "customer_id",
+          "total_amount",
+          "status"
+        ],
+        "sync_mode": "cdc"
+      }
+    },
+    {
+      "stream": {
+        "name": "customers",
+        "namespace": "public",
+        "type_schema": {
+          "properties": {
+            "_cdc_timestamp": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "_olake_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "_olake_timestamp": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "_op_type": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "created_at": {
+              "type": [
+                "timestamp",
+                "null"
+              ]
+            },
+            "customer_id": {
+              "type": [
+                "integer_small"
+              ]
+            },
+            "email": {
+              "type": [
+                "string"
+              ]
+            },
+            "first_name": {
+              "type": [
+                "string"
+              ]
+            },
+            "last_name": {
+              "type": [
+                "string"
+              ]
+            },
+            "phone": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "updated_at": {
+              "type": [
+                "timestamp",
+                "null"
+              ]
+            }
+          }
+        },
+        "supported_sync_modes": [
+          "full_refresh",
+          "cdc",
+          "strict_cdc"
+        ],
+        "source_defined_primary_key": [
+          "email",
+          "customer_id"
+        ],
+        "available_cursor_fields": [
+          "customer_id",
+          "first_name",
+          "last_name",
+          "email"
         ],
         "sync_mode": "cdc"
       }

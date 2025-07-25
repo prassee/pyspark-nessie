@@ -231,3 +231,19 @@ docker-compose down -v
 3. Implement data quality checks
 4. Configure monitoring and alerting
 5. Set up production-grade storage and security
+
+
+
+
+
+{
+  "type": "PARQUET",
+  "writer": {
+    "s3_endpoint": "http://minio:9000",
+    "s3_bucket": "cdc",
+    "s3_region": "us-east-1",
+    "s3_access_key": "admin",
+    "s3_secret_key": "password",
+    "s3_path": "/olake/writes"
+  }
+}

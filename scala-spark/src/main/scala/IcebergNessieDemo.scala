@@ -1,20 +1,21 @@
 package com.example.iceberg
 
-import mainargs.{main, arg, ParserForMethods, Flag}
 import com.example.iceberg.TableOperations.showTableMetadata
+import mainargs.Flag
+import mainargs.ParserForMethods
+import mainargs.arg
+import mainargs.main
+import org.apache.spark.sql.functions.*
 
 object IcebergNessieDemo:
 
   @main
-  def olakeCdc(): Unit =
+  def olakeCdc(@arg(name = "table", short = 't') tableName: String, @arg(name = "date", short = 'd') datePath: String): Unit =
     try {
-      spark.read.parquet("s3a://sdc/public/customers/*.parquet").show(10, truncate = false)
-      // spark.read.parquet("s3a://sdc/public/orders/*.parquet").show(10, truncate = false)
-      // spark.read.parquet("s3a://sdc/public/order_items/*.parquet").show(10, truncate = false)
+      OlakeCUBPipeline.writeUnnest(tableName, datePath)
     } catch {
       case e: Exception =>
-        logger.info(s"❌ Error occurred: ${e.getMessage}")
-        e.printStackTrace()
+        logger.info(s"Error occurred: ${e.getMessage}")
     } finally {
       spark.stop()
     }

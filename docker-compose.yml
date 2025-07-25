@@ -209,23 +209,23 @@ services:
     networks:
       - spark-network
 
-  # # Trino Coordinator
-  # trino:
-  #   image: trinodb/trino:latest
-  #   container_name: trino
-  #   ports:
-  #     - "8081:8080"
-  #   environment:
-  #     - TRINO_ENVIRONMENT=production
-  #   volumes:
-  #     - ./trino/etc:/etc/trino
-  #   # depends_on:
-  #   #   nessie:
-  #   #     condition: service_healthy
-  #   #   minio:
-  #   #     condition: service_healthy
-  #   networks:
-  #     - spark-network
+  # Trino Coordinator
+  trino:
+    image: trinodb/trino:latest
+    container_name: trino
+    ports:
+      - "8081:8080"
+    environment:
+      - TRINO_ENVIRONMENT=production
+    volumes:
+      - ./trino/etc:/etc/trino
+    # depends_on:
+    #   nessie:
+    #     condition: service_healthy
+    #   minio:
+    #     condition: service_healthy
+    networks:
+      - spark-network
 
   # # Jupyter Notebook with PySpark
   # jupyter:
@@ -263,11 +263,28 @@ services:
       - spark-network
 
   olake-sync:
-    image: olakego/source-postgres:latest
+    image: olakego/source-postgres:dev-latest
     container_name: olake-sync
     volumes:
       - ./olake:/mnt/config/
-    command: "sync --config /mnt/config/source.json --catalog /mnt/config/streams.json --state /mnt/config/state.json --destination /mnt/config/destination-s3.json "
+    command: "sync --config /mnt/config/source.json --catalog /mnt/config/streams.json --state /mnt/config/state.json --destination /mnt/config/destination-nessie.json "
+    networks:
+      - spark-network
+  
+  publisher-app:
+    image: python:3.12-alpine3.17
+    platform: linux/amd64
+    hostname: publisher-app
+    container_name: publisher-app
+    working_dir: /app
+    volumes:
+      - ./data-publish-app:/app/
+    command: >
+      sh -c "
+      pip install --upgrade pip &&
+      pip install faker psycopg2-binary &&
+      python data_simulator.py 
+      "      
     networks:
       - spark-network
 
