@@ -127,40 +127,6 @@ services:
       retries: 5
 
 
-  # # lakekeeper
-  # lakekeeper:
-  #   image: quay.io/lakekeeper/catalog:v0.9.3
-  #   container_name: lakekeeper
-  #   pull_policy: always
-  #   environment:
-  #     - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
-  #     - LAKEKEEPER__PG_DATABASE_URL_READ=postgresql://nessie:nessie@nessie-postgres:5432/lakekeeper
-  #     - LAKEKEEPER__PG_DATABASE_URL_WRITE=postgresql://nessie:nessie@nessie-postgres:5432/lakekeeper
-  #     - RUST_LOG=trace,axum=trace,sqlx=trace,lakekeeper=trace
-  #   command: [ "serve" ]
-  #   depends_on:
-  #     lakekeeper-migrate:
-  #         condition: service_completed_successfully
-  #   ports:
-  #     - "8181:8181"
-  #   networks:
-  #     - spark-network
-  
-  # lakekeeper-migrate:
-  #   image: quay.io/lakekeeper/catalog:v0.9.3
-  #   container_name: lakekeeper-migrate
-  #   pull_policy: always
-  #   environment:
-  #     - LAKEKEEPER__PG_ENCRYPTION_KEY=This-is-NOT-Secure!
-  #     - LAKEKEEPER__PG_DATABASE_URL_READ=postgresql://nessie:nessie@nessie-postgres:5432/lakekeeper
-  #     - LAKEKEEPER__PG_DATABASE_URL_WRITE=postgresql://nessie:nessie@nessie-postgres:5432/lakekeeper
-  #     - RUST_LOG=trace,axum=trace,sqlx=trace,lakekeeper=trace
-  #   restart: "no"
-  #   command: [ "migrate" ]
-  #   networks:
-  #     - spark-network
-
-
   # Spark Master
   spark-master:
     build:
