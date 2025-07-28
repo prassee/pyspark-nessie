@@ -117,16 +117,16 @@ def generate_orders_and_items(connection_params=None):
     cursor = conn.cursor()
 
     try:
-        # Select 25 random customers
-        cursor.execute("SELECT customer_id FROM customers ORDER BY RANDOM() LIMIT 25")
+        # Select 100 random customers
+        cursor.execute("SELECT customer_id FROM customers ORDER BY RANDOM() LIMIT 100")
         customer_ids = [row[0] for row in cursor.fetchall()]
 
         orders_inserted = 0
         items_inserted = 0
 
         for customer_id in customer_ids:
-            # Generate 1-3 orders per customer
-            num_orders = fake.random_int(min=1, max=3)
+            # Generate 1-10 orders per customer
+            num_orders = fake.random_int(min=1, max=10)
 
             for _ in range(num_orders):
                 # Create order
@@ -324,7 +324,7 @@ def update_random_order_items(num_orders=10, connection_params=None):
                 "UPDATE orders SET total_amount = %s, updated_at = %s WHERE order_id = %s",
                 (
                     round(new_total, 2),
-                    fake.date_time_between(start_date="-1d", end_date="now"),
+                    fake.date_time_between(start_date="-2h", end_date="now"),
                     order_id,
                 ),
             )
@@ -346,10 +346,10 @@ def update_random_order_items(num_orders=10, connection_params=None):
 
 if __name__ == "__main__":
     # Generate 50 random customers
-    # customers_data = generate_customers(50)
+    customers_data = generate_customers(500)
 
     # Insert customers into database
-    # insert_customers_to_db(customers_data)
+    insert_customers_to_db(customers_data)
 
     # Generate and insert orders and items
     # Randomly select and call one of the three methods
@@ -359,4 +359,4 @@ if __name__ == "__main__":
         generate_orders_and_items()
         update_random_order_statuses(10)
         update_random_order_items(10)
-        time.sleep(180)  # Sleep for 5 minutes (300 seconds)
+        time.sleep(120)  # Sleep for 5 minutes (300 seconds)

@@ -37,22 +37,6 @@ services:
       timeout: 20s
       retries: 3
   
-  # Minio Client - Create buckets
-  # minio-init:
-  #   image: minio/mc:latest
-  #   container_name: minio-init
-  #   depends_on:
-  #     minio:
-  #       condition: service_healthy
-  #   entrypoint: >
-  #     /bin/sh -c "
-  #     mc alias set minio http://minio:9000 admin password;
-  #     mc mb minio/warehouse --ignore-existing;
-  #     mc mb minio/nessie --ignore-existing;
-  #     echo 'Minio buckets created successfully';
-  #     "
-  #   networks:
-  #     - spark-network
 
   # PostgreSQL for Nessie persistence
   postgres:
@@ -115,8 +99,17 @@ services:
       QUARKUS_DATASOURCE_PASSWORD: nessie
       QUARKUS_LOG_LEVEL: INFO
       QUARKUS_LOG_CONSOLE_ENABLE: true
+      NESSIE_CATALOG_DEFAULT_WAREHOUSE: warehouse
+      NESSIE_CATALOG_WAREHOUSES_WAREHOUSE_LOCATION: s3://warehouse/
+      NESSIE_CATALOG_SERVICE_S3_DEFAULT_OPTIONS_REGION: us-east-1
+      NESSIE_CATALOG_SERVICE_S3_DEFAULT_OPTIONS_PATH_STYLE_ACCESS: true
+      NESSIE_CATALOG_SERVICE_S3_DEFAULT_OPTIONS_ENDPOINT: http://minio:9000/
+      NESSIE_CATALOG_SECRETS_ACCESS_KEY_NAME: admin
+      NESSIE_CATALOG_SECRETS_ACCESS_KEY_SECRET: password
     depends_on:
       postgres:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     networks:
       - spark-network
@@ -125,7 +118,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-
 
   # Spark Master
   spark-master:
@@ -220,7 +212,7 @@ services:
   #   command: start-notebook.sh --NotebookApp.token='' --NotebookApp.password='' --allow-root
 
   olake-discover:
-    image: olakego/source-postgres:latest
+    image: olakego/source-postgres:v0.1.7
     container_name: olake-discover
     volumes:
       - ./olake:/mnt/config/

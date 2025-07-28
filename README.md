@@ -62,13 +62,29 @@
    ```
 
 
+make  scala-demo ARGS="olakeCdc -t order_items -d 2025/07/23"
+make  scala-demo ARGS="olakeCdc -t order_items -d 2025/07/24"
 make  scala-demo ARGS="olakeCdc -t order_items -d 2025/07/25"
+make  scala-demo ARGS="olakeCdc -t order_items -d 2025/07/26"
 make  scala-demo ARGS="olakeCdc -t orders -d 2025/07/23"
 make  scala-demo ARGS="olakeCdc -t orders -d 2025/07/24"
 make  scala-demo ARGS="olakeCdc -t orders -d 2025/07/25"
+make  scala-demo ARGS="olakeCdc -t orders -d 2025/07/26"
+make  scala-demo ARGS="olakeCdc -t customers -d 2025/07/23"
 make  scala-demo ARGS="olakeCdc -t customers -d 2025/07/24"
 make  scala-demo ARGS="olakeCdc -t customers -d 2025/07/25"
+make  scala-demo ARGS="olakeCdc -t customers -d 2025/07/26"
 
 make  scala-demo ARGS="olakeCdc -t order_items -d 2025/07/25"
 make  scala-demo ARGS="olakeCdc -t orders -d 2025/07/25"
 make  scala-demo ARGS="olakeCdc -t customers -d 2025/07/24"
+
+make  scala-demo ARGS="olakeCdc -t customers -d 2025/07/25 -f"
+make  scala-demo ARGS="olakeCdc -t customers -d 2025/07/26" 
+make  scala-demo ARGS="olakeCdc -t orders -d 2025/07/26 -f" 
+make  scala-demo ARGS="olakeCdc -t order_items -d 2025/07/26 -f"
+
+
+make  scala-demo ARGS="olakeCdc -t orders -d 2025/07/27" 
+make  scala-demo ARGS="olakeCdc -t order_items -d 2025/07/26"
+make  scala-demo ARGS="olakeCdc -t order_items -d 2025/07/27"

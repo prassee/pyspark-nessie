@@ -17,15 +17,10 @@ object TableOperations:
     val maps: DataFrame = spark.read.option("inferSchema", "true").option("header", "true").csv(path.path)
     maps.write.format("iceberg").mode("overwrite").saveAsTable(tableName.name)
 
-  def loadIncData(
-      incDataDf: DataFrame,
-      fromTable: TableName = TableName("nessie.master.maps"),
-      matchCond: MatchCond = MatchCond("target.mapid = source.mapid")
-  )(implicit spark: SparkSession): Unit =
+  def mutateUnnestTable(fromTable: TableName, incDataDf: DataFrame): Unit =
     val sourceTable: String  = fromTable.name
     val tempViewName: String = sourceTable.replaceAll("\\.", "_") + "_temp"
     incDataDf.createOrReplaceTempView(tempViewName)
-    // First, evolve schema to add new columns if they don't exist
     val existingSchema: Set[String] = spark.sql(s"DESCRIBE ${sourceTable}").collect().map(_.getString(0)).toSet
     val incSchema: Set[String]      = spark.sql(s"DESCRIBE ${tempViewName}").collect().map(_.getString(0)).toSet
     val newColumns: Set[String]     = incSchema -- existingSchema
@@ -35,17 +30,49 @@ object TableOperations:
       spark.sql(s"ALTER TABLE ${sourceTable} ADD COLUMN $column $columnType")
       logger.info(s"Added new column: $column ($columnType)")
     }
-    // Merge incremental data with existing maps table
-    spark.sql(s"""
+    // spark.sql("drop temporary view if exists " + tempViewName)
+
+  def loadIncData(incDataDf: DataFrame, fromTable: TableName, matchCond: MatchCond)(implicit spark: SparkSession): Unit =
+    val sourceTable: String  = fromTable.name
+    val tableExists: Boolean = spark.catalog.tableExists(sourceTable)
+    if (!tableExists) then
+      logger.error(s"Checked for existence of Table ${sourceTable} and does not exist")
+      incDataDf
+        .drop("obs_year", "obs_month", "obs_day")
+        .withColumn("obs_year", year(col("created_at")))
+        .withColumn("obs_month", month(col("created_at")))
+        .withColumn("obs_day", dayofmonth(col("created_at")))
+        .write
+        .partitionBy("obs_year", "obs_month", "obs_day")
+        .format("iceberg")
+        .mode("overwrite")
+        .saveAsTable(sourceTable)
+    else
+      val tempViewName: String = sourceTable.replaceAll("\\.", "_") + "_temp"
+      incDataDf.createOrReplaceTempView(tempViewName)
+      // First, evolve schema to add new columns if they don't exist
+      val existingSchema: Set[String] = spark.sql(s"DESCRIBE ${sourceTable}").collect().map(_.getString(0)).toSet
+      val incSchema: Set[String]      = spark.sql(s"DESCRIBE ${tempViewName}").collect().map(_.getString(0)).toSet
+      val newColumns: Set[String]     = incSchema -- existingSchema
+      logger.info(s"New columns to add: ${newColumns.mkString(", ")}")
+      newColumns.foreach { column =>
+        val columnType = spark.sql(s"DESCRIBE ${tempViewName}").filter(col("col_name") === column).collect()(0).getString(1)
+        spark.sql(s"ALTER TABLE ${sourceTable} ADD COLUMN $column $columnType")
+        logger.info(s"Added new column: $column ($columnType)")
+      }
+      // Merge incremental data with existing table
+      val query = s"""
         MERGE INTO ${sourceTable} AS target
         USING ${tempViewName} AS source
         ON ${matchCond.condition}
         WHEN MATCHED THEN
-        UPDATE SET *
+          UPDATE SET *
         WHEN NOT MATCHED THEN
-        INSERT *
-      """)
-    logger.info("Incremental data merged into maps table with schema evolution!")
+          INSERT *
+      """
+      logger.info(s"Executing query: $query")
+      spark.sql(query)
+      logger.info("Incremental data merged from unnest to base table with schema evolution!")
 
   def createNamespace(name: String, path: String)(implicit spark: SparkSession): Unit =
     logger.info(s"📁 Creating namespace '$name' on location $path")
@@ -60,6 +87,19 @@ object TableOperations:
       logger.info(s"Tables in schema '$schema':")
       spark.sql(s"SHOW TABLES IN $catalogName.$schema").show(truncate = false)
     }
+
+  def dropNamespace(catalogName: String, namespace: String)(implicit spark: SparkSession): Unit =
+    logger.info(s"🗑️ Dropping namespace '$namespace'")
+    // First drop all tables in the namespace
+    val tables = spark.sql(s"SHOW TABLES IN $catalogName.$namespace").collect()
+    tables.foreach { row =>
+      val tableName = row.getString(1) // table name is in the second column
+      logger.info(s"Dropping table: $catalogName.$namespace.$tableName")
+      spark.sql(s"DROP TABLE IF EXISTS $catalogName.$namespace.$tableName")
+    }
+    // Then drop the namespace
+    spark.sql(s"DROP NAMESPACE IF EXISTS ${catalogName}.$namespace")
+    showNameSpaces()
 
   def showTableMetadata(tableName: TableName)(implicit spark: SparkSession): Unit =
     val table = tableName.name
