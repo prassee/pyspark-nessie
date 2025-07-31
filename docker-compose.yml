@@ -92,25 +92,40 @@ services:
     ports:
       - "19120:19120"
     environment:
-      NESSIE_VERSION_STORE_TYPE: JDBC
-      QUARKUS_DATASOURCE_DB_KIND: postgresql
-      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://postgres:5432/nessie
-      QUARKUS_DATASOURCE_USERNAME: nessie
-      QUARKUS_DATASOURCE_PASSWORD: nessie
-      QUARKUS_LOG_LEVEL: INFO
-      QUARKUS_LOG_CONSOLE_ENABLE: true
-      NESSIE_CATALOG_DEFAULT_WAREHOUSE: warehouse
-      NESSIE_CATALOG_WAREHOUSES_WAREHOUSE_LOCATION: s3://warehouse/
-      NESSIE_CATALOG_SERVICE_S3_DEFAULT_OPTIONS_REGION: us-east-1
-      NESSIE_CATALOG_SERVICE_S3_DEFAULT_OPTIONS_PATH_STYLE_ACCESS: true
-      NESSIE_CATALOG_SERVICE_S3_DEFAULT_OPTIONS_ENDPOINT: http://minio:9000/
-      NESSIE_CATALOG_SECRETS_ACCESS_KEY_NAME: admin
-      NESSIE_CATALOG_SECRETS_ACCESS_KEY_SECRET: password
-    depends_on:
-      postgres:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
+      # NESSIE_VERSION_STORE_TYPE: JDBC
+      # QUARKUS_DATASOURCE_DB_KIND: postgresql
+      # QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://postgres:5432/nessie
+      # QUARKUS_DATASOURCE_USERNAME: nessie
+      # QUARKUS_DATASOURCE_PASSWORD: nessie
+      # QUARKUS_LOG_LEVEL: INFO
+      # QUARKUS_LOG_CONSOLE_ENABLE: true
+      # NESSIE_CATALOG_DEFAULT_WAREHOUSE: warehouse
+      # NESSIE_CATALOG_WAREHOUSES_WAREHOUSE_LOCATION: s3://warehouse/
+      # NESSIE_CATALOG_SERVICE_S3_DEFAULT_OPTIONS_REGION: us-east-1
+      # NESSIE_CATALOG_SERVICE_S3_DEFAULT_OPTIONS_PATH_STYLE_ACCESS: true      
+      # NESSIE_CATALOG_SERVICE_S3_DEFAULT_OPTIONS_ENDPOINT: http://minio:9000/
+      # NESSIE_CATALOG_SERVICE_S3_DEFAULT_OPTIONS_EXTERNAL_ENDPOINT: http://minio:9000/
+      # NESSIE_CATALOG_SECRETS_ACCESS_KEY_NAME: admin
+      # NESSIE_CATALOG_SECRETS_ACCESS_KEY_SECRET: password
+      - nessie.version.store.type=JDBC
+      - quarkus.datasource.db-kind=postgresql
+      - quarkus.datasource.jdbc.url=jdbc:postgresql://postgres:5432/nessie
+      - quarkus.datasource.username=nessie
+      - quarkus.datasource.password=nessie
+      - nessie.catalog.default-warehouse=warehouse
+      - nessie.catalog.warehouses.warehouse.location=s3://warehouse/
+      - nessie.catalog.service.s3.default-options.region=us-east-1
+      - nessie.catalog.service.s3.default-options.path-style-access=true
+      - nessie.catalog.service.s3.default-options.endpoint=http://minio:9000/
+      - nessie.catalog.service.s3.default-options.external-endpoint=http://host.containers.internal:9000/
+      - nessie.catalog.service.s3.default-options.access-key=urn:nessie-secret:quarkus:nessie.catalog.secrets.access-key
+      - nessie.catalog.secrets.access-key.name=admin
+      - nessie.catalog.secrets.access-key.secret=password
+    # depends_on:
+    #   postgres:
+    #     condition: service_healthy
+    #   minio:
+    #     condition: service_healthy
     networks:
       - spark-network
     healthcheck:
@@ -234,7 +249,7 @@ services:
     container_name: olake-full-sync
     volumes:
       - ./olake:/mnt/config/
-    command: "sync --config /mnt/config/source.json --catalog /mnt/config/full-refresh-streams.json --destination /mnt/config/destination-s3.json"
+    command: "sync --config /mnt/config/source.json --catalog /mnt/config/full-refresh-streams-customer.json --destination /mnt/config/destination-s3.json"
     networks:
       - spark-network
 

@@ -16,7 +16,9 @@ package object iceberg:
     "spark.hadoop.fs.s3a.path.style.access"               -> "true",
     "spark.hadoop.fs.s3a.impl"                            -> "org.apache.hadoop.fs.s3a.S3AFileSystem",
     "spark.hadoop.fs.s3a.aws.credentials.provider"        -> "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider",
-    "spark.serializer"                                    -> "org.apache.spark.serializer.KryoSerializer"
+    "spark.serializer"                                    -> "org.apache.spark.serializer.KryoSerializer",
+    "spark.sql.parquet.enableVectorizedReader"            -> "false",
+    "spark.sql.parquet.writeLegacyFormat"                 -> "true"
   )
 
   private val lakeKeeperConfig: Map[String, String] = Map(

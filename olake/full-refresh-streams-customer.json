@@ -1,0 +1,101 @@
+{
+  "selected_streams": {
+    "public": [      
+      {
+        "partition_regex": "{updated_at,,YYYY}/{updated_at,,MM}/{updated_at,,DD}/",
+        "stream_name": "customers",
+        "normalization": true
+      }
+    ]
+  },
+  "streams": [
+    {
+      "stream": {
+        "name": "customers",
+        "namespace": "public",
+        "type_schema": {
+          "properties": {
+            "_cdc_timestamp": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "_olake_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "_olake_timestamp": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "_op_type": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "created_at": {
+              "type": [
+                "timestamp",
+                "null"
+              ]
+            },
+            "customer_id": {
+              "type": [
+                "integer_small"
+              ]
+            },
+            "email": {
+              "type": [
+                "string"
+              ]
+            },
+            "first_name": {
+              "type": [
+                "string"
+              ]
+            },
+            "last_name": {
+              "type": [
+                "string"
+              ]
+            },
+            "phone": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "updated_at": {
+              "type": [
+                "timestamp",
+                "null"
+              ]
+            }
+          }
+        },
+        "supported_sync_modes": [
+          "strict_cdc",
+          "full_refresh",
+          "cdc"
+        ],
+        "source_defined_primary_key": [
+          "customer_id",
+          "email"
+        ],
+        "available_cursor_fields": [
+          "customer_id",
+          "first_name",
+          "last_name",
+          "email"
+        ],
+        "sync_mode": "full_refresh"
+      }
+    }    
+  ]
+}

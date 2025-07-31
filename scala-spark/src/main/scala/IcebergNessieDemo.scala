@@ -25,12 +25,17 @@ object IcebergNessieDemo:
     }
 
   @main
-  def olakeU2b(@arg(name = "table", short = 't') tableName: String, @arg(name = "cols", short = 'c') cols: String): Unit =
+  def olakeU2b(
+      @arg(name = "table", short = 't') tableName: String,
+      @arg(name = "date", short = 'd', doc = "Date in YYYY/MM/DD format") date: String,
+      @arg(name = "cols", short = 'c') cols: String
+  ): Unit =
     try {
       val clspCols: List[String] = cols.split(",").toList
       logger.info(s"🚀 Starting Olake Unnesting... for table ${tableName} with cols ${clspCols}")
       OlakeCUBPipeline.writeUnnestToBase(
         TableName(s"nessie.unnest_oms.${tableName}"),
+        date,
         TableName(s"nessie.oms.${tableName}"),
         List("_cdc_timestamp", "_olake_id", "_op_type", "_olake_timestamp"),
         clspCols

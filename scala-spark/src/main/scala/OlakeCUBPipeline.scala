@@ -39,9 +39,20 @@ object OlakeCUBPipeline:
     * @param colsToIgnore
     * @param clpsCols
     */
-  def writeUnnestToBase(unnestTable: TableName, baseTable: TableName, colsToIgnore: List[String], clpsCols: List[String]): Unit =
-    logger.info(s"Data from ${unnestTable} merged into ${baseTable} successfully!")
-    val unnestDf: DataFrame    = spark.table(unnestTable.name)
+  def writeUnnestToBase(
+      unnestTable: TableName,
+      unnesteDate: String,
+      baseTable: TableName,
+      colsToIgnore: List[String],
+      clpsCols: List[String]
+  ): Unit =
+    logger.info(s"Data from ${unnestTable} for date ${unnesteDate} to be merged into ${baseTable} successfully!")
+    val (y, m, d) = unnesteDate.split("/").map(_.toInt) match
+      case Array(year, month, day) => (year, month, day)
+      case _                       => throw new IllegalArgumentException("Date must be in YYYY/MM/DD format")
+    val unnestDf: DataFrame = spark
+      .table(unnestTable.name)
+      .filter(col("obs_year") === y && col("obs_month") === m && col("obs_day") === d)
     val windowSpec: WindowSpec = Window.partitionBy(clpsCols.map(col): _*).orderBy(col("updated_at").desc)
     val normUnnest: DataFrame  = unnestDf
       .withColumn("row_number", row_number().over(windowSpec))

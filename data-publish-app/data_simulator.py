@@ -39,6 +39,7 @@ CREATE TABLE order_items
     unit_price   DECIMAL(10, 2) NOT NULL,
     subtotal     DECIMAL(10, 2) GENERATED ALWAYS AS (quantity * unit_price) STORED,
     created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (order_id) REFERENCES orders (order_id)
 );
 """
@@ -53,8 +54,8 @@ def generate_customers(num_customers=50):
             "last_name": fake.last_name(),
             "email": fake.unique.email(),
             "phone": fake.unique.phone_number()[:10],
-            "created_at": fake.date_time_between(start_date="-2d", end_date="now"),
-            "updated_at": fake.date_time_between(start_date="-1d", end_date="now"),
+            "created_at": fake.date_time_between(start_date="-4y", end_date="-1d"),
+            "updated_at": fake.date_time_between(start_date="-4y", end_date="-1d"),
         }
         customers.append(customer)
     return customers
@@ -117,20 +118,22 @@ def generate_orders_and_items(connection_params=None):
     cursor = conn.cursor()
 
     try:
-        # Select 100 random customers
-        cursor.execute("SELECT customer_id FROM customers ORDER BY RANDOM() LIMIT 100")
+        # Select N random customers
+        cursor.execute("SELECT customer_id FROM customers ORDER BY RANDOM() LIMIT 500")
         customer_ids = [row[0] for row in cursor.fetchall()]
 
         orders_inserted = 0
         items_inserted = 0
-
+        # Create order
+        order_date = fake.date_time_between(start_date="-4y", end_date="-1d")
+        print(
+            f"Generating orders {order_date} for {len(customer_ids)} customers ",
+            flush=True,
+        )
         for customer_id in customer_ids:
-            # Generate 1-10 orders per customer
-            num_orders = fake.random_int(min=1, max=10)
-
+            # Generate n orders per customer
+            num_orders = fake.random_int(min=1, max=30)
             for _ in range(num_orders):
-                # Create order
-                order_date = fake.date_time_between(start_date="-2h", end_date="now")
                 status = fake.random_element(
                     elements=(
                         "pending",
@@ -159,10 +162,13 @@ def generate_orders_and_items(connection_params=None):
                 order_id = cursor.fetchone()[0]
                 orders_inserted += 1
 
-                # Generate 1-5 order items per order
-                num_items = fake.random_int(min=1, max=5)
+                # Generate n random order items per order
+                num_items = fake.random_int(min=1, max=20)
                 total_amount = 0
-
+                print(
+                    f"Inserting {num_items} items for order {order_id} {order_date}",
+                    flush=True,
+                )
                 for _ in range(num_items):
                     product_name = fake.word().title() + " " + fake.word().title()
                     quantity = fake.random_int(min=1, max=10)
@@ -170,10 +176,17 @@ def generate_orders_and_items(connection_params=None):
 
                     cursor.execute(
                         """
-                        INSERT INTO order_items (order_id, product_name, quantity, unit_price, created_at)
-                        VALUES (%s, %s, %s, %s, %s)
+                        INSERT INTO order_items (order_id, product_name, quantity, unit_price, created_at, updated_at)
+                        VALUES (%s, %s, %s, %s, %s, %s)
                         """,
-                        (order_id, product_name, quantity, unit_price, order_date),
+                        (
+                            order_id,
+                            product_name,
+                            quantity,
+                            unit_price,
+                            order_date,
+                            order_date,
+                        ),
                     )
                     total_amount += quantity * unit_price
                     items_inserted += 1
@@ -345,18 +358,14 @@ def update_random_order_items(num_orders=10, connection_params=None):
 
 
 if __name__ == "__main__":
-    # Generate 50 random customers
-    customers_data = generate_customers(500)
-
-    # Insert customers into database
-    insert_customers_to_db(customers_data)
-
-    # Generate and insert orders and items
-    # Randomly select and call one of the three methods
+    # Generate 5000 random customers & insert into database
+    # customers_data = generate_customers(500)
+    # insert_customers_to_db(customers_data)
 
     while True:
         print("Starting random data operation", flush=True)
         generate_orders_and_items()
-        update_random_order_statuses(10)
-        update_random_order_items(10)
-        time.sleep(120)  # Sleep for 5 minutes (300 seconds)
+        # update_random_order_statuses(10)
+        # update_random_order_items(10)
+        # Sleep for every iteration to avoid overwhelming the database
+        time.sleep(60)
