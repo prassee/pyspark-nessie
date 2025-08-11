@@ -123,7 +123,7 @@ scala-demo:
 	docker exec -it spark-master spark-submit \
 		--class com.example.iceberg.IcebergNessieDemo \
 		--master spark://spark-master:7077 \
-		--executor-memory 1g \
+		--executor-memory 2g \
 		--driver-memory 1g \
 		--executor-cores 1 \
 		--num-executors 1 \

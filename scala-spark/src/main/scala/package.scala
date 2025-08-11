@@ -2,6 +2,7 @@ package com.example
 
 import org.apache.spark.sql.SparkSession
 import org.slf4j.Logger
+import org.apache.spark.sql.SparkSession.Builder
 
 package object iceberg:
   val logger: Logger = org.slf4j.LoggerFactory.getLogger("IcebergDemo")
@@ -21,20 +22,6 @@ package object iceberg:
     "spark.sql.parquet.writeLegacyFormat"                 -> "true"
   )
 
-  private val lakeKeeperConfig: Map[String, String] = Map(
-    "spark.sql.catalog.lakekeeper"           -> "org.apache.iceberg.spark.SparkCatalog",
-    "spark.sql.catalog.lakekeeper.type"      -> "rest",
-    "spark.sql.catalog.lakekeeper.uri"       -> "http://lakekeeper:8181/catalog",
-    "spark.sql.catalog.lakekeeper.scope"     -> "lakekeeper",
-    "spark.sql.catalog.lakekeeper.warehouse" -> "warehouse"
-  ) ++ commonConfig
-
-  lazy val lakeKeeperSpark: SparkSession = {
-    val builder = SparkSession.builder().appName("IcebergLakekeeperDemo")
-    lakeKeeperConfig.foreach { case (k, v) => builder.config(k, v) }
-    builder.getOrCreate()
-  }
-
   private val nessieConfig: Map[String, String] = Map(
     "spark.sql.catalog.nessie"              -> "org.apache.iceberg.spark.SparkCatalog",
     "spark.sql.catalog.nessie.catalog-impl" -> "org.apache.iceberg.nessie.NessieCatalog",
@@ -44,7 +31,7 @@ package object iceberg:
   ) ++ commonConfig
 
   lazy val nessieSpark: SparkSession = {
-    val builder = SparkSession.builder().appName("IcebergNessieScalaDemo")
+    val builder: Builder = SparkSession.builder().appName("IcebergNessieScalaDemo")
     nessieConfig.foreach { case (k, v) => builder.config(k, v) }
     builder.getOrCreate()
   }

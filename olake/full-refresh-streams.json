@@ -1,20 +1,23 @@
 {
   "selected_streams": {
     "public": [
-      {
-        "partition_regex": "{updated_at,,YYYY}/{updated_at,,MM}/{updated_at,,DD}/",
+       {
+        "partition_regex": "/{updated_at, day}",
         "stream_name": "order_items",
-        "normalization": true
+        "normalization": true,
+        "append_only": true
       },
       {
-        "partition_regex": "{updated_at,,YYYY}/{updated_at,,MM}/{updated_at,,DD}/",
+        "partition_regex": "/{updated_at, day}",
         "stream_name": "orders",
-        "normalization": true
+        "normalization": true,
+        "append_only": true
       },
       {
-        "partition_regex": "{updated_at,,YYYY}/{updated_at,,MM}/{updated_at,,DD}/",
+        "partition_regex": "/{updated_at, day}",
         "stream_name": "customers",
-        "normalization": true
+        "normalization": true,
+        "append_only": true
       }
     ]
   },

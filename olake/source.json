@@ -12,6 +12,6 @@
         "replication_slot": "olake_slot",
         "intial_wait_time": 200
     },
-    "reader_batch_size": 20000,
+    "reader_batch_size": 200000,
     "max_threads": 3
 }

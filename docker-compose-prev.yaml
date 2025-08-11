@@ -1,0 +1,182 @@
+services:
+  nessie:
+    image: ghcr.io/projectnessie/nessie:latest
+    container_name: nessie
+    ports:
+      - "19120:19120"
+    environment:
+      - nessie.version.store.type=JDBC
+      - quarkus.datasource.db-kind=postgresql
+      - quarkus.datasource.jdbc.url=jdbc:postgresql://postgres:5432/nessie_db
+      - quarkus.datasource.username=nessie
+      - quarkus.datasource.password=nessie
+      - nessie.catalog.default-warehouse=warehouse
+      - nessie.catalog.warehouses.warehouse.location=s3://warehouse/
+      - nessie.catalog.service.s3.default-options.region=us-east-1
+      - nessie.catalog.service.s3.default-options.path-style-access=true
+      - nessie.catalog.service.s3.default-options.endpoint=http://minio:9000/
+      - nessie.catalog.service.s3.default-options.external-endpoint=http://host.containers.internal:9000/
+      - nessie.catalog.service.s3.default-options.access-key=urn:nessie-secret:quarkus:nessie.catalog.secrets.access-key
+      - nessie.catalog.secrets.access-key.name=minio
+      - nessie.catalog.secrets.access-key.secret=minio123
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - nessie-network
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-07-18T21-56-31Z
+    container_name: minio
+    ports:
+      - "9000:9000"
+      - "9090:9090"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+      MINIO_ADDRESS: ":9000"
+      MINIO_CONSOLE_ADDRESS: ":9090"
+    volumes:
+      - minio-data:/data
+    command: server /data
+    networks:
+      - nessie-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 5s
+      timeout: 2s
+      retries: 15
+
+  mc:
+    image: quay.io/minio/minio:RELEASE.2025-07-18T21-56-31Z
+    container_name: mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: /bin/bash
+    restart: "no"
+    command: >
+      -c "until mc alias set myminio http://minio:9000 minio minio123; do
+            echo 'Waiting for Minio...' && sleep 2;
+          done;
+          mc mb myminio/warehouse --ignore-existing;"
+    networks:
+      - nessie-network
+
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      POSTGRES_USER: nessie
+      POSTGRES_PASSWORD: nessie
+      POSTGRES_DB: nessie_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - nessie_postgres_data:/var/lib/postgresql/data
+    networks:
+      - nessie-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nessie -d nessie_db"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+
+  ods-postgres:
+    image: vijaysaran07/postgres-with-wal2json:v1.0
+    container_name: ods-postgres
+    environment:
+      POSTGRES_DB: ods
+      POSTGRES_USER: ods
+      POSTGRES_PASSWORD: ods
+    volumes:
+      - ods_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    networks:
+      - nessie-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ods -d ods"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    command: >
+      postgres -c wal_level=logical
+               -c max_replication_slots=10
+               -c max_wal_senders=10
+               -c wal_keep_size=64MB
+               -c track_commit_timestamp=on
+               -c shared_preload_libraries='wal2json'
+  olake-discover:
+    image: olakego/source-postgres:v0.1.7
+    container_name: olake-discover
+    volumes:
+      - ./olake:/mnt/config/
+    command: "discover --config /mnt/config/source.json"
+    networks:
+      - nessie-network
+
+  olake-sync:
+    image: olakego/source-postgres:v0.1.7
+    container_name: olake-sync
+    volumes:
+      - ./olake:/mnt/config/
+    command: "sync --config /mnt/config/source.json --catalog /mnt/config/cdc-streams.json --state /mnt/config/state.json --destination /mnt/config/destination-nessie.json"
+    # command: "sync --config /mnt/config/source.json --catalog /mnt/config/cdc-streams.json --destination /mnt/config/destination-nessie.json"
+    networks:
+      - nessie-network
+  
+  olake-full-sync:
+    image: olakego/source-postgres:v0.1.7
+    container_name: olake-full-sync
+    volumes:
+      - ./olake:/mnt/config/
+    command: "sync --config /mnt/config/source.json --catalog /mnt/config/full-refresh-streams.json --destination /mnt/config/destination-nessie.json"
+    networks:
+      - nessie-network
+  
+  publisher-app:
+    image: python:3.12-alpine3.17
+    platform: linux/amd64
+    hostname: publisher-app
+    container_name: publisher-app
+    working_dir: /app
+    volumes:
+      - ./data-publish-app:/app/
+    command: >
+      sh -c "
+      pip install --upgrade pip &&
+      pip install faker psycopg2-binary &&
+      python data_simulator.py 
+      "      
+    networks:
+      - nessie-network
+
+  trino:
+    image: trinodb/trino:latest
+    container_name: trino
+    ports:
+      - "8081:8080"
+    environment:
+      - TRINO_ENVIRONMENT=production
+    volumes:
+      - ./trino/etc:/etc/trino
+    # depends_on:
+    #   nessie:
+    #     condition: service_healthy
+    #   minio:
+    #     condition: service_healthy
+    networks:
+      - nessie-network
+
+volumes:
+  minio-data:
+  ods_postgres_data:
+  nessie_postgres_data:
+  # mongo1_data:
+  # mongo2_data:
+  # mongo3_data:
+
+networks:
+  nessie-network:
+    driver: bridge

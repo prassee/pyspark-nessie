@@ -6,6 +6,8 @@ import mainargs.ParserForMethods
 import mainargs.arg
 import mainargs.main
 import org.apache.spark.sql.functions.*
+import org.apache.spark.sql.Dataset
+import org.apache.spark.sql.Row
 
 object IcebergNessieDemo:
 
@@ -31,16 +33,29 @@ object IcebergNessieDemo:
       @arg(name = "cols", short = 'c') cols: String
   ): Unit =
     try {
-      val clspCols: List[String] = cols.split(",").toList
-      logger.info(s"🚀 Starting Olake Unnesting... for table ${tableName} with cols ${clspCols}")
-      OlakeCUBPipeline.writeUnnestToBase(
-        TableName(s"nessie.unnest_oms.${tableName}"),
-        date,
-        TableName(s"nessie.oms.${tableName}"),
-        List("_cdc_timestamp", "_olake_id", "_op_type", "_olake_timestamp"),
-        clspCols
-      )
-      logger.info("✅ Olake Unnesting completed successfully!")
+      val unnestSchemaName: String = "iceberg_db"
+      val clspCols: List[String]   = cols.split(",").toList
+      val unnestTable: TableName   = TableName(s"nessie.${unnestSchemaName}.${tableName}")
+
+      val tableDf: Dataset[Row] = spark.read
+        .option("mergeSchema", "true")
+        .parquet(
+          s"s3a://warehouse/iceberg_db/orders_5593506a-3b3f-4fa4-9e4e-57470e94a3f1/data/updated_at_day=2022-06-04/*.parquet"
+        )
+      tableDf.show(5, truncate = false)
+
+      val snapshotDf: Dataset[Row] = spark.sql(s"select * from ${unnestTable.name} where updated_at = DATE '${date}'")
+      snapshotDf.show(5, truncate = false)
+      logger.info(s"Starting Olake Unnesting... for table ${tableName} with cols ${clspCols}")
+      logger.info(s"Unnest table: ${unnestTable.name}")
+      // OlakeCUBPipeline.writeUnnestToBase(
+      //   unnestTable,
+      //   date,
+      //   TableName(s"nessie.oms.${tableName}"),
+      //   List("_cdc_timestamp", "_olake_id", "_op_type", "_olake_timestamp"),
+      //   clspCols
+      // )
+      // logger.info("✅ Olake Unnesting completed successfully!")
     } catch {
       case e: Exception =>
         logger.info(s"❌ Error occurred: ${e.getMessage}")

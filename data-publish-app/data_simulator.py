@@ -116,16 +116,13 @@ def generate_orders_and_items(connection_params=None):
 
     conn = psycopg2.connect(**connection_params)
     cursor = conn.cursor()
-
+    order_date = fake.date_time_between(start_date="-4y", end_date="-1d")
     try:
         # Select N random customers
         cursor.execute("SELECT customer_id FROM customers ORDER BY RANDOM() LIMIT 500")
         customer_ids = [row[0] for row in cursor.fetchall()]
-
         orders_inserted = 0
         items_inserted = 0
-        # Create order
-        order_date = fake.date_time_between(start_date="-4y", end_date="-1d")
         print(
             f"Generating orders {order_date} for {len(customer_ids)} customers ",
             flush=True,
@@ -359,7 +356,7 @@ def update_random_order_items(num_orders=10, connection_params=None):
 
 if __name__ == "__main__":
     # Generate 5000 random customers & insert into database
-    # customers_data = generate_customers(500)
+    # customers_data = generate_customers(5000)
     # insert_customers_to_db(customers_data)
 
     while True:
