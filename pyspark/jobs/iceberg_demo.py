@@ -30,6 +30,7 @@ def create_spark_session():
             "spark.hadoop.fs.s3a.aws.credentials.provider",
             "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider",
         )
+        .config("spark.driver.memory", "2g")
         .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
         .getOrCreate()
     )
@@ -38,7 +39,7 @@ def create_spark_session():
 def load_matches_data(spark: SparkSession):
     import pyspark.sql.functions as F
 
-    matches = spark.read.csv("s3a://sdc/matches.csv", header=True, inferSchema=True)
+    matches = spark.read.csv("s3a://stage/matches.csv", header=True, inferSchema=True)
     matches = matches.withColumn("obs_year", F.year("completion_date")).withColumn(
         "obs_month", F.month("completion_date")
     )
@@ -47,6 +48,120 @@ def load_matches_data(spark: SparkSession):
         # .partitionBy("obs_year", "obs_month")
         .mode("overwrite").saveAsTable("nessie.unnest_master.matches")
     )
+
+
+def load_persons_data(spark: SparkSession):
+    import pyspark.sql.functions as F
+
+    users = spark.read.csv("s3a://stage/export.csv", header=True, inferSchema=True)
+    users = users.withColumn("obs_year", F.year("birthDate"))
+    (
+        users.write.format("iceberg")
+        .partitionBy("obs_year")
+        .mode("overwrite")
+        .saveAsTable("nessie.unnest_oms.users")
+    )
+
+
+def load_mf_data(spark: SparkSession, years: list[int]):
+    # schemes = spark.read.csv(
+    #     "s3a://stage/schemes_202508230836.csv", header=True, inferSchema=True
+    # )
+    # schemes.write.format("iceberg").mode("overwrite").saveAsTable(
+    #     "nessie.unnest_mf.schemes"
+    # )
+
+    # securities = spark.read.csv(
+    #     "s3a://stage/securities_202508230840.csv", header=True, inferSchema=True
+    # )
+    # securities.write.format("iceberg").mode("overwrite").saveAsTable(
+    #     "nessie.unnest_mf.securities"
+    # )
+    import pyspark.sql.functions as F
+    from pyspark.sql.types import (
+        DateType,
+        DoubleType,
+        IntegerType,
+        StructField,
+        StructType,
+    )
+
+    # Define schema for the NAV CSV (adjust field names/types to match actual file)
+    nav_schema = StructType(
+        [
+            StructField("scheme_code", IntegerType(), True),
+            StructField("date", DateType(), True),
+            StructField("nav", DoubleType(), True),
+        ]
+    )
+    for year in years:
+        navs = (
+            spark.read.schema(nav_schema)
+            .option("header", "true")
+            .option("timestampFormat", "yyyy-MM-dd")
+            .option("dateFormat", "yyyy-MM-dd")
+            .csv(f"s3a://stage/mf/{year}.csv")
+        )
+        navs = navs.withColumn("obs_year", F.year("date")).withColumn(
+            "obs_month", F.month("date")
+        )
+        navs.writeTo("nessie.unnest_mf.navs").overwritePartitions()
+
+
+def curate_navs(spark: SparkSession, year: int, is_create: bool = False):
+    # Implement curation logic here
+    import pyspark.sql.functions as F
+
+    navs = spark.read.table("nessie.unnest_mf.navs").filter(f"obs_year = {year}")
+    navs_writer = (
+        navs.groupBy("scheme_code")
+        .agg(F.collect_list("nav").alias("navs"), F.collect_list("date").alias("dates"))
+        .withColumn("year", F.lit(year))
+        .join(
+            spark.read.table("nessie.unnest_mf.schemes"),
+            "scheme_code",
+            "left",
+        )
+        .writeTo("nessie.mf.curated_navs")
+    )
+    if is_create:
+        navs_writer.using("iceberg").partitionedBy("year").createOrReplace()
+    else:
+        navs_writer.overwritePartitions()
+
+
+def curate_daily_navs(spark: SparkSession, year: int, month: int, day: int):
+    # Implement curation logic here
+    import pyspark.sql.functions as F
+
+    incr_navs = (
+        spark.read.table("nessie.unnest_mf.navs")
+        .filter(f"obs_year = {year} AND obs_month = {month} AND day(date) = {day}")
+        .groupBy("scheme_code")
+        .agg(F.collect_list("nav").alias("navs"), F.collect_list("date").alias("dates"))
+        .withColumn("year", F.lit(year))
+        .join(
+            spark.read.table("nessie.unnest_mf.schemes"),
+            "scheme_code",
+            "left",
+        )
+    )
+    incr_navs.createTempView("staging_navs")
+    spark.sql(
+        """
+        MERGE INTO nessie.mf.curated_navs AS target
+        USING staging_navs AS source
+        ON target.scheme_code = source.scheme_code
+        AND target.year = source.year
+        AND target.scheme_code = source.scheme_code
+        WHEN MATCHED THEN UPDATE SET
+        target.navs = array_union(target.navs, source.navs),
+        target.dates = array_union(target.dates, source.dates)
+        WHEN NOT MATCHED THEN INSERT (scheme_code, navs, dates, year, scheme_name) VALUES
+        (source.scheme_code, source.navs, source.dates, source.year, source.scheme_name)
+        """
+    )
+    # navs = spark.read.table("nessie.mf.curated_navs")
 
 
 def partition_matches_data(spark: SparkSession):
@@ -60,7 +175,8 @@ def partition_matches_data(spark: SparkSession):
 
 
 def load_matches_data_partitioned(spark: SparkSession):
-    matches = spark.sql("""select * from nessie.unnest_master.matches""")
+    matches_query = """select * from nessie.oms.matches"""
+    matches = spark.sql(matches_query)
     print(f"total matches count {matches.count()}")  # Trigger action to load data
     matches.show(5, False)
     matches.printSchema()
@@ -131,9 +247,32 @@ def main():
 
     # Create Spark session
     spark = create_spark_session()
-    load_incremental_data(spark)
-
-    print("Job completed successfully!")
+    # curate_navs(spark, 2011)
+    # curate_daily_navs(spark, 2014, 1, 1)
+    curate_daily_navs(spark, 2014, 1, 2)
+    # load_incremental_data(spark)
+    # load_matches_data_partitioned(spark)
+    # load_persons_data(spark)
+    # load_mf_data(
+    #     spark,
+    #     years=[
+    #         2011,
+    #         2012,
+    #         2013,
+    #         2014,
+    #         2015,
+    #         2016,
+    #         2017,
+    #         2018,
+    #         2019,
+    #         2020,
+    #         2021,
+    #         2022,
+    #         2023,
+    #         2024,
+    #     ],
+    # )
+    # print("Job completed successfully!")
     spark.stop()
 
 

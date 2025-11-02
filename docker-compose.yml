@@ -135,6 +135,7 @@ services:
     ports:
       - "8080:8080"
       - "7077:7077"
+      - "4040:4040"
     volumes:
       - ./pyspark/jobs:/opt/spark/jobs
       - ./conf:/opt/spark/conf-custom
@@ -148,6 +149,30 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: spark-worker
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_WORKER_CORES=2
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+      - SPARK_USER=spark
+    depends_on:
+      - spark-master
+    volumes:
+      - ./pyspark/jobs:/opt/spark/jobs
+      - ./conf:/opt/spark/conf-custom
+      - ./jars:/opt/spark/jars-custom
+    networks:
+      - spark-network
+  
+  spark-worker-1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spark-worker-1
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark-master:7077
@@ -181,53 +206,53 @@ services:
       - spark-network
 
   # Jupyter Notebook with PySpark
-  # jupyter:
-  #   image: jupyter/pyspark-notebook:latest
-  #   container_name: jupyter-pyspark
-  #   ports:
-  #     - "8888:8888"
-  #   environment:
-  #     - JUPYTER_ENABLE_LAB=yes
-  #     - SPARK_MASTER=spark://spark-master:7077
-  #     - PYSPARK_SUBMIT_ARGS=--jars /opt/spark/jars-custom/*.jar pyspark-shell
-  #     - GRANT_SUDO=yes
-  #     - CHOWN_HOME=yes
-  #     - CHOWN_HOME_OPTS=-R
-  #   user: root
+  jupyter:
+    image: jupyter/pyspark-notebook:latest
+    container_name: jupyter-pyspark
+    ports:
+      - "8888:8888"
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - SPARK_MASTER=spark://spark-master:7077
+      - PYSPARK_SUBMIT_ARGS=--jars /opt/spark/jars-custom/*.jar pyspark-shell
+      - GRANT_SUDO=yes
+      - CHOWN_HOME=yes
+      - CHOWN_HOME_OPTS=-R
+    user: root
+    volumes:
+      - ./notebooks:/home/jovyan/work
+      - ./conf:/opt/spark/conf-custom
+      - ./jars:/opt/spark/jars-custom    
+    networks:
+      - spark-network
+    command: start-notebook.sh --NotebookApp.token='' --NotebookApp.password='' --allow-root
+
+  # olake-discover:
+  #   image: olakego/source-postgres:latest
+  #   container_name: olake-discover
   #   volumes:
-  #     - ./notebooks:/home/jovyan/work
-  #     - ./conf:/opt/spark/conf-custom
-  #     - ./jars:/opt/spark/jars-custom    
+  #     - ./olake:/mnt/config/
+  #   command: "discover --config /mnt/config/source.json"
   #   networks:
   #     - spark-network
-  #   command: start-notebook.sh --NotebookApp.token='' --NotebookApp.password='' --allow-root
 
-  olake-discover:
-    image: olakego/source-postgres:latest
-    container_name: olake-discover
-    volumes:
-      - ./olake:/mnt/config/
-    command: "discover --config /mnt/config/source.json"
-    networks:
-      - spark-network
-
-  olake-sync:
-    image: olakego/source-postgres:latest
-    container_name: olake-sync
-    volumes:
-      - ./olake:/mnt/config/
-    command: "sync --config /mnt/config/source.json --catalog /mnt/config/cdc-streams.json --state /mnt/config/state.json --destination /mnt/config/destination-nessie.json"
-    networks:
-      - spark-network
+  # olake-sync:
+  #   image: olakego/source-postgres:latest
+  #   container_name: olake-sync
+  #   volumes:
+  #     - ./olake:/mnt/config/
+  #   command: "sync --config /mnt/config/source.json --catalog /mnt/config/cdc-streams.json --state /mnt/config/state.json --destination /mnt/config/destination-nessie.json"
+  #   networks:
+  #     - spark-network
   
-  olake-full-sync:
-    image: olakego/source-postgres:latest
-    container_name: olake-full-sync
-    volumes:
-      - ./olake:/mnt/config/
-    command: "sync --config /mnt/config/source.json --catalog /mnt/config/full-refresh-streams.json --destination /mnt/config/destination-nessie.json"
-    networks:
-      - spark-network
+  # olake-full-sync:
+  #   image: olakego/source-postgres:latest
+  #   container_name: olake-full-sync
+  #   volumes:
+  #     - ./olake:/mnt/config/
+  #   command: "sync --config /mnt/config/source.json --catalog /mnt/config/full-refresh-streams.json --destination /mnt/config/destination-nessie.json"
+  #   networks:
+  #     - spark-network
 
   publisher-app:
     image: python:3.12-alpine3.17

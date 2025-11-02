@@ -75,13 +75,13 @@ object TableOperations:
       logger.info("Incremental data merged from unnest to base table with schema evolution!")
 
   def createNamespace(name: String, path: String)(implicit spark: SparkSession): Unit =
-    logger.info(s"📁 Creating namespace '$name' on location $path")
+    logger.info(s"Creating namespace '$name' on location $path")
     // Use the provided path as the namespace location, even if it differs from the default warehouse location
     spark.sql(s"CREATE NAMESPACE IF NOT EXISTS $name LOCATION '$path'")
     showNameSpaces()
 
   def showNameSpaces(catalogName: String = "nessie")(implicit spark: SparkSession): Unit =
-    logger.info("📋 Available namespaces:")
+    logger.info("Available namespaces:")
     spark.sql(s"use ${catalogName}").show(truncate = false)
     spark.sql(s"SHOW SCHEMAS IN ${catalogName}").collect().map(_.getString(0)).foreach { schema =>
       logger.info(s"Tables in schema '$schema':")
@@ -89,7 +89,7 @@ object TableOperations:
     }
 
   def dropNamespace(catalogName: String, namespace: String)(implicit spark: SparkSession): Unit =
-    logger.info(s"🗑️ Dropping namespace '$namespace'")
+    logger.info(s"Dropping namespace '$namespace'")
     // First drop all tables in the namespace
     val tables = spark.sql(s"SHOW TABLES IN $catalogName.$namespace").collect()
     tables.foreach { row =>
@@ -103,15 +103,15 @@ object TableOperations:
 
   def showTableMetadata(tableName: TableName)(implicit spark: SparkSession): Unit =
     val table = tableName.name
-    logger.info("🔍 Table properties:")
+    logger.info("Table properties:")
     spark.sql(s"SHOW TBLPROPERTIES ${table}").show(truncate = false)
-    logger.info("\n📚 Table history:")
+    logger.info("\nTable history:")
     spark.sql(s"SELECT * FROM ${table}.history").show(truncate = false)
-    logger.info("\n📂 Table snapshots:")
+    logger.info("\nTable snapshots:")
     spark
       .sql(s"SELECT operation,summary,committed_at,manifest_list,parent_id FROM ${table}.snapshots")
       .show(truncate = false)
-    logger.info("\n📁 Table files:")
+    logger.info("\nTable files:")
     val filesDF = spark.sql(s"SELECT * FROM ${table}.files")
     logger.info(s"Number of data files: ${filesDF.count()}")
     filesDF
@@ -119,7 +119,7 @@ object TableOperations:
       .show(truncate = false)
 
   def demonstrateTimeTravel()(implicit spark: SparkSession): Unit =
-    logger.info("⏰ Demonstrating time travel...")
+    logger.info("Demonstrating time travel...")
 
     val snapshots = spark
       .sql("SELECT snapshot_id FROM employees.snapshots ORDER BY committed_at")
@@ -127,11 +127,11 @@ object TableOperations:
 
     if snapshots.nonEmpty then
       val firstSnapshotId = snapshots.head.getLong(0)
-      logger.info(s"🕐 Querying first snapshot: $firstSnapshotId")
+      logger.info(s"Querying first snapshot: $firstSnapshotId")
 
       val timeTravelDF = spark.sql(s"SELECT * FROM employees VERSION AS OF $firstSnapshotId")
       logger.info(s"Records in first snapshot: ${timeTravelDF.count()}")
       timeTravelDF.show()
 
   def performUnnest(path: InputFilePath)(implicit spark: SparkSession): Unit =
-    logger.info("🔄 Performing unnest operation...")
+    logger.info("Performing unnest operation...")

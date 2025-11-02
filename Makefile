@@ -55,6 +55,7 @@ demo: ## Run the demo PySpark job
 	@echo "Running demo PySpark job..."
 	docker exec -it spark-master spark-submit \
 		--master spark://spark-master:7077 \
+		--driver-memory 4g \
 		--jars /opt/spark/jars-custom/*.jar \
 		/opt/spark/jobs/iceberg_demo.py
 
